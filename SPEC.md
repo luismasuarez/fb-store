@@ -24,7 +24,7 @@
 
 | Componente | Tecnología | Justificación |
 |---|---|---|
-| Scraper | Python (`kevinzg/facebook-scraper` + cookies) | Gratuito, rápido para MVP. Fallback a Apify API. |
+| Scraper | Node.js + Playwright + `launchPersistentContext` | Mismo lenguaje que API, sesión persistente real, extracción vía DOM |
 | API Server | Node.js + Express + TypeScript | Tipado fuerte, ecosistema maduro, fácil conexión con Expo |
 | Job Queue | BullMQ (Redis) | Schedule, retry, rate limiting |
 | AI Processing | OpenAI GPT-4o / Claude 3.5 Sonnet | Extracción estructurada de datos no-estructurados |
@@ -42,7 +42,7 @@
 │                                                          │
 │  ┌──────────────┐    ┌──────────┐    ┌──────────────┐   │
 │  │  Scraper      │───▶│  Redis   │◀───│  API          │   │
-│  │  (Python)     │    │ (BullMQ) │    │  (Express)    │   │
+│  │  (Playwright) │    │ (BullMQ) │    │  (Express)    │   │
 │  └──────┬───────┘    └──────────┘    └──────┬─────────┘   │
 │         │                                    │             │
 │         ▼                                    ▼             │
@@ -68,8 +68,8 @@
 ### Flujo de datos
 
 1. **Scheduler** CRON (BullMQ) dispara el scraper cada N minutos
-2. **Scraper** toma cookie activa, consulta posts recientes de cada grupo
-3. **Posts crudos** se guardan en `raw_text` + tabla temporal
+2. **Scraper** abre contexto headless con perfil persistente, navega al grupo, extrae posts del DOM
+3. **Posts crudos** se guardan en `raw_posts` + `raw_text`
 4. **AI Processor** toma posts nuevos, los envía al LLM, extrae estructura
 5. **Datos estructurados** se guardan en `listings` con dedup por `fb_post_id`
 6. **API REST** expone los listings filtrables
@@ -79,93 +79,118 @@
 
 ## Estrategia de Scraping
 
-### Abstracción de proveedor
+### Enfoque: Playwright + perfil Chrome persistente
+
+No hay APIs intermedias, no hay librerías frágiles de terceros. Playwright abre Chromium headless con un perfil real de Chrome que contiene la sesión de Facebook intacta.
 
 ```
-┌──────────────────────────────────────────────┐
-│  Scraper Interface (abstract class)           │
-│  - getPosts(groupId, maxPosts) → Post[]      │
-│                                              │
-│  ┌──────────────────────┐                    │
-│  │  FacebookScraper     │ ← Gratis, frágil   │
-│  │  (kevinzg/facebook-  │                    │
-│  │   scraper + cookies) │                    │
-│  └──────────────────────┘                    │
-│           │ Falla? → swap en config          │
-│           ▼                                  │
-│  ┌──────────────────────┐                    │
-│  │  ApifyScraper        │ ← Pago, confiable  │
-│  │  (Apify API)         │  ~$2/1K posts      │
-│  └──────────────────────┘                    │
-└──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Setup (1 vez, en tu máquina local)                      │
+│                                                         │
+│  npm run setup:login                                    │
+│  → Playwright abre Chrome (headed, con ventana)          │
+│  → Logeas en Facebook con email + OTP                   │
+│  → Cierras el browser                                   │
+│  → El perfil completo se guarda en ./profiles/fb-cuenta-1/│
+│  → Subes la carpeta al server (rsync/scp)               │
+│                                                         │
+│  Producción (en el server)                               │
+│  → Playwright abre Chrome headless                      │
+│  → launchPersistentContext('/data/profiles/fb-cuenta-1/')│
+│  → Facebook ve EL MISMO browser, misma sesión            │
+│  → Sin cookies que expiren, sin relogueo                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### facebook-scraper (default para MVP)
+Por qué funciona: `launchPersistentContext` guarda todo — cookies, localStorage, indexedDB, service workers, cache. Cuando abres headless con ese mismo perfil, Facebook te reconoce como el navegador de siempre.
 
-1. Login manual 1 vez → exportar cookies
-2. El scraper usa esas cookies para autenticarse
-3. Consulta el feed del grupo via GraphQL interno
-4. Extrae: texto, imágenes, timestamp, autor
-5. Retorna JSON con posts crudos
+### Extracción de datos (sin interacción)
 
-**Limitaciones conocidas:**
-- Se rompe cuando Facebook cambia sus endpoints GraphQL (cada 2-4 semanas)
-- No siempre obtiene todas las imágenes
-- Los grupos privados pueden requerir cookies adicionales
+Las publicaciones de Facebook truncan el texto visualmente con CSS (`-webkit-line-clamp`), pero el texto completo **sí está en el DOM**. Lo extraes directamente sin clicks, sin expansiones, sin interactuar con la página.
 
-### Apify (fallback)
+```typescript
+// El texto completo está disponible en textContent aunque esté truncado visualmente
+function extractPostData(postEl: Element): RawPost {
+  return {
+    text: postEl.querySelector('[data-ad-preview="message"]')?.textContent ?? '',
+    images: Array.from(postEl.querySelectorAll('img[src*="scontent"]'))
+      .map(img => (img as HTMLImageElement).src)
+      .filter(src => !src.includes('emoji')),
+    author: postEl.querySelector('h2 a, h3 a, h4 a')?.textContent ?? '',
+    timestamp: postEl.querySelector('abbr')?.getAttribute('title') ?? '',
+    postUrl: postEl.querySelector('a[href*="/posts/"]')?.getAttribute('href') ?? '',
+  };
+}
+```
 
-1. API key en env vars
-2. POST a `https://api.apify.com/v2/acts/apify~facebook-posts-scraper/runs`
-3. Apify maneja proxies, anti-block, CAPTCHAs
-4. Callback o polling para resultados
-
-### Medidas anti-detección
+### Anti-detección (lo mínimo necesario)
 
 | Medida | Detalle |
 |---|---|
-| Rate limiting | Máximo 1 grupo cada 3 minutos |
-| Límite de posts | Configurable por grupo (default: 30) |
-| Schedule | Solo en horario diurno (8:00–22:00) |
-| Intervalo | Cada 2–4 horas (configurable) |
-| Cookies | Extraídas de sesión real, renovadas al expirar |
-| Rotación de cuentas | Múltiples cuentas en env, swap con variable |
-| Proxies (opcional) | Residenciales si se requiere |
+| Perfil persistente | `launchPersistentContext` con userDataDir del perfil real |
+| Flag webdriver oculto | `--disable-blink-features=AutomationControlled` |
+| Rate limiting progresivo | Scroll pausado: 1 pantalla cada 3-5 segundos |
+| Pausa entre grupos | 10-15 minutos entre grupo y grupo |
+| Schedule diurno | Solo entre 8:00–22:00, 2-3 rondas por día |
+| Rotación de cuentas | Múltiples perfiles, se cambia con una env var |
+
+No se necesita: proxies residenciales, rotación de user agents, mouse movements, headed mode, VNC, fingerprint injection, ni nada adicional. La sesión real + ritmo pausado es suficiente.
+
+### Ritmo de scraping (progresivo, no bulk)
+
+```typescript
+// Por grupo: scroll de a poco, pausa, extrae, siguiente
+for (const group of groups) {
+  const page = await context.newPage();
+  await page.goto(`https://facebook.com/groups/${group.id}`, {
+    waitUntil: 'networkidle',
+  });
+
+  for (let i = 0; i < group.maxPosts / 5; i++) {
+    await page.evaluate(() => window.scrollBy(0, 800));
+    await page.waitForTimeout(3000 + Math.random() * 2000); // 3-5s entre scrolls
+
+    const posts = await page.evaluate(extractVisiblePosts);
+    await sendToQueue(posts);
+  }
+
+  await page.close();
+
+  // Pausa real entre grupos (10-15 min)
+  const pauseMs = (10 + Math.random() * 5) * 60 * 1000;
+  await page.waitForTimeout(pauseMs);
+}
+```
+
+**Tiempos realistas para 10 grupos:**
+- Por grupo: ~2-3 minutos (scrolleando lento)
+- Pausa entre grupos: ~12 minutos promedio
+- Ronda completa: ~2-2.5 horas
+- 3 rondas al día → ~6-7 horas de "actividad" distribuidas en horario diurno
 
 ### Configuración (environment variables)
 
 ```bash
 # === CUENTAS DE FACEBOOK ===
-# Array JSON de cuentas. Cada una con email, password y ruta a archivo de cookies.
+# Array JSON de cuentas. Cada una con ruta al perfil de Chrome persistente.
 FB_ACCOUNTS='[
-  {"email": "cuenta1@email.com", "password": "pass123", "cookies": "/cookies/cuenta1.json"},
-  {"email": "cuenta2@email.com", "password": "pass456", "cookies": "/cookies/cuenta2.json"}
+  {"email": "cuenta1@email.com", "profile": "/data/profiles/cuenta1"},
+  {"email": "cuenta2@email.com", "profile": "/data/profiles/cuenta2"}
 ]'
 # Índice de la cuenta activa (0-based). Cambiar si la actual es baneada.
 ACTIVE_ACCOUNT_INDEX=0
 
 # === GRUPOS A SCRAPEAR ===
-# Array JSON de grupos. ID numérico de Facebook + nombre + límite de posts por scrape.
+# Array JSON de grupos.
 FB_GROUPS='[
   {"id": "123456789", "name": "Ventas Caracas", "max_posts": 30},
-  {"id": "987654321", "name": "Marketplace Venezuela", "max_posts": 20},
-  {"id": "456789123", "name": "Compra Venta Cocina", "max_posts": 25}
+  {"id": "987654321", "name": "Marketplace Venezuela", "max_posts": 20}
 ]'
 
 # === SCHEDULE ===
-# Intervalo en minutos entre cada ronda de scraping.
 SCRAPE_INTERVAL_MINUTES=180
-# Horario diurno: no scrapear de madrugada.
 SCRAPE_HOURS_START=8
 SCRAPE_HOURS_END=22
-
-# === SCRAPER BACKEND ===
-# "facebook-scraper" | "apify"
-SCRAPER_BACKEND="facebook-scraper"
-
-# === APIFY (fallback) ===
-APIFY_API_KEY=""
-APIFY_ACT_ID="apify~facebook-posts-scraper"
 
 # === DATABASE ===
 DATABASE_URL="postgresql://user:pass@db:5432/fbstore"
@@ -174,11 +199,10 @@ DATABASE_URL="postgresql://user:pass@db:5432/fbstore"
 REDIS_URL="redis://redis:6379"
 
 # === AI ===
-AI_PROVIDER="openai"  # "openai" | "anthropic"
+AI_PROVIDER="openai"
 OPENAI_API_KEY=""
 ANTHROPIC_API_KEY=""
 AI_MODEL="gpt-4o"
-# Procesa solo posts sin procesar. Límite para controlar costos.
 AI_MAX_POSTS_PER_RUN=50
 
 # === APP ===
@@ -228,7 +252,7 @@ JSON:
 | Sin teléfono | `contact_phone: null` |
 | Múltiples productos | `category: "otros"`, descripción completa |
 | Publicación "vendido" | `is_available: false` |
-| Moneda ambigua | Inferir del contexto (dolar, $ → USD; bs, bolos, → Bs) |
+| Moneda ambigua | Inferir del contexto (dolar, $ → USD; bs, bolos → Bs) |
 | Solo imágenes sin texto | Saltar (sin datos para procesar) |
 
 ### Rate limiting
@@ -293,7 +317,6 @@ CREATE TABLE scrape_logs (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id      TEXT REFERENCES groups(id),
   account_index INT,
-  backend       TEXT,                      -- "facebook-scraper" | "apify"
   posts_found   INT DEFAULT 0,
   posts_new     INT DEFAULT 0,
   posts_errors  INT DEFAULT 0,
@@ -440,8 +463,6 @@ export function getWhatsAppLink(phone: string, product: string, appName: string)
 ### Docker Compose
 
 ```yaml
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -471,7 +492,7 @@ services:
     build: ./scraper
     env_file: .env
     volumes:
-      - ./cookies:/cookies          # Archivos de cookies montados
+      - ./profiles:/data/profiles      # Perfiles de Chrome persistentes
     depends_on:
       - api
       - redis
@@ -489,6 +510,23 @@ volumes:
   pgdata:
 ```
 
+### Setup de perfiles (1 vez)
+
+```bash
+# En tu máquina local con interfaz gráfica:
+npm run setup:login
+
+# Esto corre un script con Playwright headed que:
+# 1. Abre Chrome
+# 2. Navega a facebook.com
+# 3. Espera a que hagas login manualmente
+# 4. Guarda el perfil completo en ./profiles/fb-cuenta-1/
+# 5. Cierra
+
+# Luego subes los perfiles al server:
+rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
+```
+
 ### Requisitos del servidor
 
 - VPS con Docker y Docker Compose
@@ -496,21 +534,19 @@ volumes:
 - 20GB SSD
 - CPU 2 cores
 - Node.js 20+ (para builds)
-- Python 3.11+ (para scraper)
+- Playwright system dependencies (instaladas vía Dockerfile)
 
 ---
 
 ## Costos Mensuales Estimados
 
-| Recurso | Con facebook-scraper | Con Apify |
-|---|---|---|
-| VPS (2GB RAM, 2 cores) | ~$10-15 | ~$10-15 |
-| Apify API | $0 | ~$5-20 |
-| OpenAI API (GPT-4o mini) | ~$3-8 | ~$3-8 |
-| Proxies (opcional) | ~$5-10 | $0 (incluidos en Apify) |
-| **Total** | **~$18-33/mes** | **~$18-43/mes** |
+| Recurso | Costo |
+|---|---|
+| VPS (2GB RAM, 2 cores) | ~$10-15 |
+| OpenAI API (GPT-4o mini) | ~$3-8 |
+| **Total** | **~$13-23/mes** |
 
-*Asumiendo ~300-500 posts procesados por día, ~10 rondas de scraping.*
+*Asumiendo ~300-500 posts procesados por día, ~3 rondas de scraping.*
 
 ---
 
@@ -518,80 +554,67 @@ volumes:
 
 ### Leyenda
 
-- 🔴 **Pendiente** — No started
-- 🟡 **En progreso** — Working on it
-- 🟢 **Completado** — Done
-- ⚪ **Cancelado** — Won't do / deprecated
+- 🔴 **Pendiente**
+- 🟡 **En progreso**
+- 🟢 **Completado**
+- ⚪ **Cancelado**
 
 ### Fase 1: MVP Core (Semana 1-2)
 
-| ID | Tarea | Estado | Notas |
-|---|---|---|---|
-| 1.1 | Setup del proyecto (monorepo, Docker Compose, tooling) | 🔴 | |
-| 1.2 | Scraper Python con facebook-scraper + cookies | 🔴 | |
-| 1.3 | Abstracción de proveedor de scraping (interface) | 🔴 | |
-| 1.4 | Schema PostgreSQL + migraciones | 🔴 | |
-| 1.5 | API Express: endpoints CRUD de listings | 🔴 | |
-| 1.6 | API Express: endpoint de búsqueda/texto | 🔴 | |
-| 1.7 | AI Processor: integración OpenAI + prompt engineering | 🔴 | |
-| 1.8 | BullMQ: scheduler + job queue | 🔴 | |
-| 1.9 | Config vía env vars (cuentas, grupos, schedule) | 🔴 | |
-| 1.10 | Rotación de cuentas por env var | 🔴 | |
+| ID | Tarea | Estado |
+|---|---|---|
+| 1.1 | Setup del proyecto (monorepo, Docker Compose, tooling) | 🔴 |
+| 1.2 | Docker con Playwright + Chromium + dependencias | 🔴 |
+| 1.3 | Script de setup: login local con Playwright headed, guarda perfil | 🔴 |
+| 1.4 | Scraper headless con `launchPersistentContext` + extracción DOM | 🔴 |
+| 1.5 | Rate limiting progresivo: scroll pausado, pausa entre grupos | 🔴 |
+| 1.6 | Schema PostgreSQL + migraciones | 🔴 |
+| 1.7 | API Express: endpoints CRUD de listings + búsqueda | 🔴 |
+| 1.8 | AI Processor: integración OpenAI + prompt engineering | 🔴 |
+| 1.9 | BullMQ: scheduler + job queue + schedule configurable | 🔴 |
+| 1.10 | Config vía env vars (cuentas, grupos, schedule, rotación) | 🔴 |
 
 ### Fase 2: App Móvil (Semana 3)
 
-| ID | Tarea | Estado | Notas |
-|---|---|---|---|
-| 2.1 | Expo project init + navegación | 🔴 | |
-| 2.2 | Pantalla Home con grid de listings | 🔴 | |
-| 2.3 | Pantalla de detalle con galería | 🔴 | |
-| 2.4 | Pantalla de categorías | 🔴 | |
-| 2.5 | Búsqueda + filtros | 🔴 | |
-| 2.6 | Integración WhatsApp (wa.me link) | 🔴 | |
-| 2.7 | Scroll infinito (FlashList) | 🔴 | |
+| ID | Tarea | Estado |
+|---|---|---|
+| 2.1 | Expo project init + navegación | 🔴 |
+| 2.2 | Pantalla Home con grid de listings | 🔴 |
+| 2.3 | Pantalla de detalle con galería | 🔴 |
+| 2.4 | Pantalla de categorías | 🔴 |
+| 2.5 | Búsqueda + filtros | 🔴 |
+| 2.6 | Integración WhatsApp (wa.me link) | 🔴 |
+| 2.7 | Scroll infinito (FlashList) | 🔴 |
 
 ### Fase 3: Producción (Semana 4)
 
-| ID | Tarea | Estado | Notas |
-|---|---|---|---|
-| 3.1 | Docker Compose producción | 🔴 | |
-| 3.2 | Health checks + logging | 🔴 | |
-| 3.3 | Documentación de setup (README) | 🔴 | |
-| 3.4 | Prueba con grupos reales | 🔴 | |
-| 3.5 | Ajustes de prompt según data real | 🔴 | |
+| ID | Tarea | Estado |
+|---|---|---|
+| 3.1 | Health checks + logging estructurado | 🔴 |
+| 3.2 | Documentación de setup (README) | 🔴 |
+| 3.3 | Prueba con grupos reales | 🔴 |
+| 3.4 | Ajustes de prompt según data real | 🔴 |
 
 ### Fase 4: Iteraciones post-MVP
 
-| ID | Tarea | Estado | Prioridad |
-|---|---|---|---|
-| 4.1 | Fallback a Apify API | 🔴 | Media |
-| 4.2 | Notificaciones push de nuevos listings | 🔴 | Baja |
-| 4.3 | Autenticación de usuarios en la app | 🔴 | Baja |
-| 4.4 | Que usuarios puedan publicar directamente | 🔴 | Baja |
-| 4.5 | Moderación de listings | 🔴 | Baja |
-| 4.6 | Múltiples ciudades/ubicaciones | 🔴 | Baja |
-| 4.7 | Favoritos / guardar listings | 🔴 | Baja |
+| ID | Tarea | Prioridad |
+|---|---|---|
+| 4.1 | Notificaciones push de nuevos listings | Baja |
+| 4.2 | Autenticación de usuarios en la app | Baja |
+| 4.3 | Publicación directa desde la app | Baja |
+| 4.4 | Favoritos / guardar listings | Baja |
+| 4.5 | Múltiples ubicaciones | Baja |
 
 ---
 
 ## Changelog
 
-Todas las modificaciones importantes de este spec se registran aquí.
-
-Formato: `[YYYY-MM-DD] - Tipo - Descripción`
-
 ### 2026-05-25
 
 | Tipo | Descripción |
 |---|---|
-| **Creación** | Versión inicial del spec. Arquitectura, scraping, AI, DB, API, Expo, roadmap y costos. |
-
-### Próximos cambios esperados
-
-- Ajustes de prompt según data real de grupos
-- Precios y monedas: definición exacta según los formatos que aparezcan
-- Categorías: ajuste fino basado en tipos de productos reales
-- Rate limiting: calibración según frecuencia real de publicaciones
+| **Creación** | Versión inicial del spec. |
+| **Actualización** | Scraper migrado de Python/facebook-scraper a Node.js + Playwright con `launchPersistentContext`. Eliminado: Apify fallback, proxies, VNC, Xvfb, mouse movements, headed mode en producción. Agregado: setup de login local (1 vez headed), scraping headless con perfil persistente, rate limiting progresivo sin artificios. Roadmap simplificado. |
 
 ---
 
