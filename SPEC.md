@@ -26,8 +26,10 @@
 
 | Componente | Tecnología | Versión |
 |---|---|---|
+| Package manager | pnpm | latest |
 | API Server | NestJS + Fastify | `11.1.24` + `5.8.5` |
-| ORM | Prisma | `7.8.0` |
+| Monorepo tool | Turborepo | latest |
+| ORM | Prisma (en `packages/shared`) | `7.8.0` |
 | Job Queue | BullMQ + Redis (ioredis) | `5.77.3` |
 | Validación | Zod | `4.4.3` |
 | Scraper | Node.js + Playwright | `1.52.x` |
@@ -47,7 +49,9 @@
 
 ```
 fb-store/
-├── package.json                   # npm workspaces root
+├── package.json                   # pnpm workspaces root
+├── pnpm-workspace.yaml            # packages: [apps/*, packages/*]
+├── turbo.json                     # Turborepo config + TUI
 ├── tsconfig.base.json             # Base TS config compartida
 ├── .env.example
 ├── docker-compose.yml
@@ -57,17 +61,17 @@ fb-store/
 │   └── Dockerfile.ai-processor
 │
 ├── apps/                          # Aplicaciones desplegables
-│   ├── api/                       # NestJS + Fastify + Prisma
+│   ├── api/                       # NestJS 11 + Fastify 5
+│   │   ├── nest-cli.json
 │   │   ├── package.json
 │   │   ├── tsconfig.json
-│   │   ├── prisma/
-│   │   │   └── schema.prisma
 │   │   └── src/
-│   │       ├── main.ts
+│   │       ├── main.ts            # FastifyAdapter
 │   │       ├── app.module.ts
+│   │       ├── app.controller.ts
 │   │       ├── prisma/
-│   │       │   ├── prisma.module.ts
-│   │       │   └── prisma.service.ts
+│   │       │   ├── prisma.module.ts   # @Global, provee PrismaService
+│   │       │   └── prisma.service.ts  # Wrapper sobre getPrismaClient()
 │   │       ├── listings/
 │   │       │   ├── listings.module.ts
 │   │       │   ├── listings.controller.ts
@@ -76,70 +80,59 @@ fb-store/
 │   │       ├── scrape/
 │   │       └── common/
 │   │           ├── dto/            # Zod schemas como DTOs
-│   │           └── filters/        # Exception filters (Fastify)
+│   │           └── filters/        # Exception filters Fastify
 │   │
 │   ├── admin/                     # Vite + React + shadcn/ui
-│   │   ├── package.json           # Post-MVP, no tocar en Fase 0
-│   │   └── ...
+│   │   └── package.json           # Vacío hasta Fase 4
 │   │
-│   └── expo/                      # Expo SDK 56
-│       ├── app.json
-│       ├── package.json
-│       └── src/
-│           ├── App.tsx
-│           ├── screens/
-│           │   ├── HomeScreen.tsx
-│           │   ├── DetailScreen.tsx
-│           │   ├── CategoriesScreen.tsx
-│           │   └── SearchScreen.tsx
-│           ├── components/
-│           │   ├── ListingCard.tsx
-│           │   └── CategoryBadge.tsx
-│           ├── api/
-│           │   └── client.ts
-│           ├── store/
-│           │   ├── filters.ts      # Zustand
-│           │   └── favorites.ts
-│           └── utils/
-│               └── whatsapp.ts
+│   └── expo/                      # Expo SDK 56 (post-Fase 1)
+│       └── package.json           # Vacío hasta Fase 2
 │
 ├── packages/                      # Librerías compartidas
-│   ├── shared/                    # Cero dependencias externas
+│   ├── shared/                    # Types + Prisma + Zod + Utils
 │   │   ├── package.json
 │   │   ├── tsconfig.json
+│   │   ├── prisma/
+│   │   │   └── schema.prisma      # Schema ÚNICO de toda la DB
+│   │   ├── prisma.config.ts       # Config v7: defineConfig, env
 │   │   └── src/
 │   │       ├── index.ts
+│   │       ├── generated/
+│   │       │   └── prisma/        # GENERADO por prisma generate (gitignored)
+│   │       ├── prisma/
+│   │       │   ├── client.ts      # getPrismaClient() singleton con adapter-pg
+│   │       │   └── index.ts
 │   │       ├── types/
 │   │       │   ├── listing.ts
 │   │       │   ├── group.ts
 │   │       │   ├── scraper.ts
 │   │       │   └── config.ts
 │   │       ├── ai/
-│   │       │   ├── provider.ts     # AIProvider interface
-│   │       │   ├── registry.ts     # Provider registry
+│   │       │   ├── provider.ts    # AIProvider interface
+│   │       │   ├── registry.ts    # Provider registry
 │   │       │   ├── openai.ts
 │   │       │   ├── anthropic.ts
-│   │       │   └── prompt.ts       # Prompt engineering
-│   │       ├── schemas/            # Zod schemas compartidos
+│   │       │   └── prompt.ts
+│   │       ├── schemas/           # Zod schemas
 │   │       │   ├── listing.schema.ts
 │   │       │   ├── config.schema.ts
 │   │       │   └── scrape.schema.ts
 │   │       └── utils/
 │   │           ├── whatsapp.ts
-│   │           └── sanitize.ts      # Limpieza de texto HTML/DOM
+│   │           └── sanitize.ts
 │   │
-│   ├── scraper/                    # Playwright + BullMQ worker
+│   ├── scraper/                   # Playwright + BullMQ worker
 │   │   ├── package.json
 │   │   ├── tsconfig.json
 │   │   └── src/
-│   │       ├── index.ts            # BullMQ worker
-│   │       ├── browser.ts          # Context manager (launchPersistentContext)
-│   │       ├── login.ts            # npm run setup:login
-│   │       ├── extractor.ts        # Extracción DOM → RawPost
-│   │       ├── behavior.ts         # Rate limiting, scroll pausado
+│   │       ├── index.ts
+│   │       ├── browser.ts         # launchPersistentContext
+│   │       ├── login.ts           # pnpm setup:login
+│   │       ├── extractor.ts       # Extracción DOM
+│   │       ├── behavior.ts        # Rate limiting
 │   │       └── config.ts
 │   │
-│   └── ai-processor/               # BullMQ worker
+│   └── ai-processor/              # BullMQ worker
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── src/
@@ -147,27 +140,27 @@ fb-store/
 │           ├── worker.ts
 │           └── extract.ts
 │
-└── profiles/                       # Perfiles Chrome (gitignored)
+└── profiles/                      # Perfiles Chrome (gitignored)
     └── cuenta-1/
 ```
 
 ### Reglas del monorepo
 
-- **`packages/shared`** no depende de nada externo. Solo TypeScript + Zod.
-- **`packages/scraper`** solo depende de `shared` + Playwright + sanitize-html + BullMQ.
-- **`packages/ai-processor`** solo depende de `shared` + provider SDKs + BullMQ.
-- **`apps/api`** depende de `shared` + NestJS + Prisma + BullMQ.
-- **`apps/admin`** se construye post-MVP. En Fase 0 se usa **Prisma Studio** como admin visual.
-- **`apps/expo`** puede duplicar tipos si es necesario (Expo no siempre resuelve workspaces bien).
+- **`packages/shared`** contiene Prisma (schema + client generado + adapter-pg), types, schemas Zod y utils. Es la única fuente de verdad para la DB.
+- **`packages/scraper`** depende de `shared` + Playwright + sanitize-html + BullMQ.
+- **`packages/ai-processor`** depende de `shared` + provider SDKs + BullMQ.
+- **`apps/api`** consume `shared` para PrismaClient via `PrismaService`, NestJS + Fastify + Zod DTOs.
+- **`apps/admin`** se construye en Fase 4. En Fase 0 se usa **Prisma Studio**.
+- **`apps/expo`** se inicia en Fase 2. Types desde shared o duplicados si Expo no resuelve workspaces.
 
 ### Dependencias por paquete
 
 | Paquete | Dependencias externas |
 |---|---|
-| `shared` | `zod@4.4.3` |
-| `scraper` | `playwright@1.52.x`, `bullmq@5.77.3`, `sanitize-html`, `shared` |
-| `ai-processor` | `bullmq@5.77.3`, `openai`, `@anthropic-ai/sdk`, `shared` |
-| `api` | `@nestjs/core@11.1.24`, `@nestjs/platform-fastify@11.1.24`, `@nestjs/bullmq@11.0.4`, `@nestjs/config`, `@prisma/client@7.8.0`, `prisma@7.8.0` (dev), `ioredis`, `zod@4.4.3`, `shared` |
+| `shared` | `@prisma/client@7.8.0`, `@prisma/adapter-pg`, `pg`, `zod@4.4.3`; dev: `prisma@7.8.0`, `@types/pg` |
+| `scraper` | `playwright@1.52.x`, `bullmq@5.77.3`, `sanitize-html`, `@fb-store/shared` |
+| `ai-processor` | `bullmq@5.77.3`, `openai`, `@anthropic-ai/sdk`, `@fb-store/shared` |
+| `api` | `@nestjs/core@11.1.24`, `@nestjs/platform-fastify@11.1.24`, `@nestjs/bullmq@11.0.4`, `@nestjs/config@11.x`, `@nestjs/swagger@11.x`, `@anatine/zod-nestjs`, `ioredis`, `bullmq@5.77.3`, `@fb-store/shared` |
 | `expo` | Expo SDK 56 + RN 0.85 + React 19.2.3, `expo-image`, `expo-linking`, `@shopify/flash-list`, `@react-navigation/native@7.2.5`, `native-stack@7.16.0`, `bottom-tabs@7.16.2`, `@tanstack/react-query@5.100.14`, `zustand@5.0.13` |
 
 ---
@@ -496,18 +489,62 @@ Intervalo fijo simple (ej: cada 4 horas en horario diurno). La lógica variable 
 
 ### Esquema Prisma
 
+El schema único está en `packages/shared/prisma/schema.prisma`. El client se genera a `packages/shared/src/generated/prisma/`.
+
 ```prisma
-// apps/api/prisma/schema.prisma
+// packages/shared/prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+```
 
+La config de Prisma v7 usa `prisma.config.ts` en lugar de depender solo del schema:
+
+```typescript
+// packages/shared/prisma.config.ts
+
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations" },
+  datasource: { url: env("DATABASE_URL") },
+});
+```
+
+Y el PrismaClient se instancia con driver adapter (requerido en v7):
+
+```typescript
+// packages/shared/src/prisma/client.ts
+
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../generated/prisma/client";
+
+let client: PrismaClient | null = null;
+
+export function getPrismaClient(): PrismaClient {
+  if (!client) {
+    const adapter = new PrismaPg({
+      connectionString: process.env.DATABASE_URL!,
+    });
+    client = new PrismaClient({ adapter });
+  }
+  return client;
+}
+```
+
+**Modelos:**
+
+```prisma
 model Listing {
   id            String   @id @default(uuid()) @db.Uuid
   fbPostId      String   @unique @map("fb_post_id")
@@ -799,13 +836,13 @@ volumes:
 
 ```bash
 # Setup de perfil (1 vez en PC local)
-npm run setup:login
+pnpm setup:login
 
 # Ver data en DB (Fase 0 admin)
-npx prisma studio
+pnpm db:studio
 
 # Ver jobs en cola
-npx bullmq-dashboard
+pnpm dlx bullmq-dashboard
 
 # Logs del scraper
 docker compose logs -f scraper
@@ -815,7 +852,7 @@ docker compose logs -f scraper
 
 ```bash
 # En tu máquina local con interfaz gráfica:
-npm run setup:login
+pnpm setup:login
 
 # 1. Playwright abre Chrome headed
 # 2. Navega a facebook.com
@@ -866,15 +903,13 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 
 | # | Tarea | Dependencias clave | Estado |
 |---|---|---|---|
-| 0.1 | Monorepo: npm workspaces + tsconfig base | — | 🔴 |
-| 0.2 | `shared`: types + schemas Zod + utils (sanitize, whatsapp) | `zod@4.4.3` | 🔴 |
-| 0.3 | `scraper`: Docker + Chromium + Playwright | `playwright@1.52.x` | 🔴 |
-| 0.4 | Script `setup:login` (headed local, guarda perfil) | Playwright headed | 🔴 |
-| 0.5 | `scraper`: extracción DOM de 1 grupo + sanitizado | `sanitize-html` | 🔴 |
-| 0.6 | `api`: NestJS + Fastify + Prisma schema + migraciones | `@nestjs/*`, `prisma@7.8.0`, `fastify@5.8.5` | 🔴 |
-| 0.7 | `api`: endpoints GET /api/raw-posts + GET /api/listings | `zod`, `@nestjs/swagger` | 🔴 |
-| 0.8 | `expo`: proyecto init + HomeScreen con posts desde API | Expo SDK 56, `@tanstack/react-query`, `flash-list` | 🔴 |
-| 0.9 | Prueba E2E: scraper → DB → API → app | — | 🔴 |
+| 0.1 | Turborepo scaffold con TUI + pnpm workspaces + turbo.json | `create-turbo@latest` | 🔴 |
+| 0.2 | `shared`: Prisma v7 con adapter-pg + schema + prisma.config.ts + migración init | `prisma@7.8.0`, `@prisma/adapter-pg`, `pg`, `zod@4.4.3` | 🔴 |
+| 0.3 | `shared`: types base + schemas Zod + utils (sanitize, whatsapp) | `zod@4.4.3` | 🔴 |
+| 0.4 | `api`: NestJS 11 + Fastify 5 + PrismaService + módulos esqueleto | `@nestjs/*`, `fastify@5.8.5`, `@anatine/zod-nestjs` | 🔴 |
+| 0.5 | `api`: endpoints GET /api/raw-posts + GET /api/listings | `@nestjs/swagger` | 🔴 |
+| 0.6 | Docker Compose (PostgreSQL + Redis) + scripts root | — | 🔴 |
+| 0.7 | Verificación: pnpm install → prisma generate → migrate → dev → health check | — | 🔴 |
 
 ---
 
@@ -944,12 +979,15 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 | **Creación** | Versión inicial del spec. |
 | **Actualización** | Scraper: Python/facebook-scraper → Node.js + Playwright con `launchPersistentContext`. Sin Apify, proxies, VNC, Xvfb. Setup login local 1 vez. |
 | **Actualización** | AI Provider modular: interfaz `AIProvider` + registry. OpenAI, Anthropic, OpenRouter (incluye modelos gratis). |
-| **Actualización** | Monorepo: npm workspaces con `apps/` (api, admin, expo) + `packages/` (shared, scraper, ai-processor). `shared` sin dependencias externas. |
+| **Actualización** | Monorepo: npm workspaces → pnpm workspaces con Turborepo. `apps/` + `packages/`. `shared` ahora incluye Prisma. |
 | **Actualización** | Stack finalizado: NestJS 11 + Fastify 5 + Prisma 7 + Zod 4 + TypeScript 6 + Expo SDK 56 (RN 0.85, React 19). Versiones concretas y lockeadas por paquete. |
 | **Actualización** | Admin: Postergado a Fase 4. En Fase 0 se usa Prisma Studio. |
 | **Actualización** | Schedule Strategy: sección agregada como pendiente (Fase 3). |
 | **Actualización** | Roadmap: Fase 0 (primeros datos) → Fase 1 (MVP Core) → Fase 2 (App) → Fase 3 (Schedule) → Fase 4 (Admin) → Fase 5 (Post-MVP). |
 | **Actualización** | Agregadas dependencias faltantes: `ioredis`, `sanitize-html`, `openai`, `@anthropic-ai/sdk`, `@nestjs/config`, `@nestjs/swagger`, `@anatine/zod-nestjs`. |
+| **Actualización** | Package manager: npm → pnpm. Turborepo como orquestador del monorepo con `ui: tui`. |
+| **Actualización** | Prisma movido a `packages/shared`. Schema único centralizado + `prisma.config.ts` + driver adapter `@prisma/adapter-pg` (requerido en v7). PrismaClient singleton via `getPrismaClient()`. |
+| **Actualización** | Roadmap Fase 0 simplificado: 7 tareas (eliminado expo, scraper, admin diferidos a fases posteriores). |
 
 ---
 
