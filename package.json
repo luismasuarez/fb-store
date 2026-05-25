@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "tsx apps/api/src/main.ts",
+    "dev": "tsx --tsconfig apps/api/tsconfig.json apps/api/src/main.ts",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "cd packages/shared && npx prisma generate",

@@ -6,8 +6,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts",
+    "dev": "tsx watch --tsconfig tsconfig.json src/main.ts",
+    "start": "tsx --tsconfig tsconfig.json src/main.ts",
     "start:prod": "node dist/main"
   },
   "dependencies": {
