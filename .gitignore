@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.turbo/
+profiles/
+*.log
+.env
+.env.local
+packages/shared/src/generated/
