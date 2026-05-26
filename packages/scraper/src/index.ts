@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+import { resolve } from "node:path";
+config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
 import { getPrismaClient } from "@fb-store/shared";
 import { createContext } from "./browser";
 import { EXTRACTOR_SCRIPT, buildExtractorScript } from "./extractor";
@@ -23,13 +26,58 @@ async function scrapeGroup(
 
     const url = `https://facebook.com/groups/${group.id}`;
     console.log(`🌐 Navegando a: ${url}`);
-    await page.goto(url, { waitUntil: "networkidle", timeout: 45000 });
+    console.log(`📁 Perfil usado: ${profileDir}`);
+
+    const cookiesBefore = await context.cookies();
+    console.log(`🍪 Cookies antes: ${cookiesBefore.length}`);
+
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    await page.waitForTimeout(2000);
+
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => window.scrollBy(0, 600));
+      await page.waitForTimeout(2000);
+    }
+
     await page.waitForTimeout(3000);
 
-    const script = buildExtractorScript(maxScrolls, scrollDelayMs);
+    const cookiesAfter = await context.cookies();
+    console.log(`🍪 Cookies: ${cookiesAfter.length}`);
+    const fbCookie = cookiesAfter.find(c => c.name === "c_user" || c.name === "xs");
+    console.log(`🔑 Sesión FB: ${fbCookie ? fbCookie.name + "=" + fbCookie.value.substring(0, 10) + "..." : "NO"}`);
+
+    const pageContent = await page.evaluate(() => {
+      const feed = document.querySelector('[role="feed"]');
+      if (!feed) return { error: "no feed" };
+      const posts = feed.querySelectorAll('[aria-posinset]');
+      const postData = Array.from(posts).slice(0, 3).map(el => {
+        const fullHtml = el.innerHTML.substring(0, 2000);
+        const text = (el.textContent || "").substring(0, 500);
+        const imgs = Array.from(el.querySelectorAll('img')).map(i => i.src).filter(s => s.includes("scontent"));
+        return {
+          posinset: el.getAttribute("aria-posinset"),
+          isVirtualized: el.closest('[data-virtualized="true"]') !== null,
+          text,
+          images: imgs.length,
+          imgSrcs: imgs.slice(0, 2),
+          html: fullHtml,
+        };
+      });
+      return {
+        feedChildren: feed.children.length,
+        ariaPosinset: posts.length,
+        samples: postData,
+      };
+    });
+    console.log(`📄 Posts en feed: ${JSON.stringify(pageContent, null, 2)}`);
+
+    const totalScrolls = maxScrolls + 5;
+    const script = buildExtractorScript(totalScrolls, scrollDelayMs);
     const posts = (await page.evaluate(script)) as RawPost[];
 
-    console.log(`📦 Extraídos ${posts.length} posts`);
+    const nonEmpty = posts.filter(p => p.text.trim().length > 10);
+    console.log(`📦 Extraídos ${posts.length} posts (${nonEmpty.length} con texto)`);
     return posts;
   } finally {
     await page.close();

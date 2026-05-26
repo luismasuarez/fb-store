@@ -1,8 +1,10 @@
+import { config } from "dotenv";
 import { chromium } from "playwright";
 import path from "node:path";
 import { existsSync } from "node:fs";
 
 const PROJECT_ROOT = process.env.INIT_CWD || process.cwd();
+config({ path: path.resolve(PROJECT_ROOT, ".env") });
 const PROFILE_DIR = path.resolve(PROJECT_ROOT, "profiles", "cuenta-1");
 
 function detectChrome(): string | undefined {
@@ -40,8 +42,8 @@ async function main() {
 
   const page = await context.newPage();
   await page.goto("https://facebook.com/", {
-    waitUntil: "networkidle",
-    timeout: 60000,
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
   });
 
   console.log("🌐 Navegador abierto — iniciá sesión en Facebook manualmente.");
