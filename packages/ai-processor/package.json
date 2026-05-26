@@ -1,0 +1,17 @@
+{
+  "name": "@fb-store/ai-processor",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@fb-store/shared": "workspace:*",
+    "bullmq": "5.77.3",
+    "ioredis": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

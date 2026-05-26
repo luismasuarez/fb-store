@@ -1,14 +1,38 @@
 services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fbstore
+      POSTGRES_PASSWORD: fbstore
+      POSTGRES_DB: fbstore
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fbstore -d fbstore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - fb-store-net
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 3
+    networks:
+      - fb-store-net
 
   api:
     build:
@@ -23,9 +47,13 @@ services:
       - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
       - REDIS_URL=redis://redis:6379
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fb-store-net
 
   scraper:
     build:
@@ -40,9 +68,13 @@ services:
     volumes:
       - ./profiles:/app/profiles
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fb-store-net
 
   ai-processor:
     build:
@@ -55,6 +87,23 @@ services:
       - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
       - REDIS_URL=redis://redis:6379
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fb-store-net
+
+volumes:
+  postgres-data:
+    name: fb-store-postgres-data
+    driver: local
+  redis-data:
+    name: fb-store-redis-data
+    driver: local
+
+networks:
+  fb-store-net:
+    name: fb-store-net
+    driver: bridge

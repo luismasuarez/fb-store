@@ -91,6 +91,22 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/ai-processor:
+    dependencies:
+      '@fb-store/shared':
+        specifier: workspace:*
+        version: link:../shared
+      bullmq:
+        specifier: 5.77.3
+        version: 5.77.3
+      ioredis:
+        specifier: ^5.0.0
+        version: 5.10.1
+    devDependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/scraper:
     dependencies:
       '@fb-store/shared':

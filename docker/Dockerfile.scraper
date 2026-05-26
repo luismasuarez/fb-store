@@ -29,9 +29,9 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --prod --frozen-lockfile
 
 # ── Playwright browsers stage ──
-FROM base AS playwright
-RUN pnpm --filter @fb-store/scraper exec playwright install chromium
-RUN pnpm --filter @fb-store/scraper exec playwright install-deps chromium
+FROM deps AS playwright
+RUN npx playwright install chromium
+RUN npx playwright install-deps chromium
 
 FROM base AS prod
 RUN groupadd -r fbstore && useradd --no-log-init -r -g fbstore fbstore
@@ -43,8 +43,9 @@ COPY --from=prod-deps /app/packages/scraper/node_modules /app/packages/scraper/n
 COPY --from=build /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=build /app/packages/scraper/dist /app/packages/scraper/dist
 
-# Playwright browsers need system libraries
-COPY --from=playwright /root/.cache/ms-playwright /root/.cache/ms-playwright
+# Playwright browsers — set correct ownership for non-root user
+COPY --from=playwright --chown=fbstore:fbstore /root/.cache/ms-playwright /home/fbstore/.cache/ms-playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/fbstore/.cache/ms-playwright
 
 COPY packages/scraper/package.json packages/scraper/
 

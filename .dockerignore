@@ -1,0 +1,15 @@
+node_modules/
+.turbo/
+.git/
+.gitignore
+.env
+.env.*
+*.md
+profiles/
+apps/admin/
+apps/expo/
+packages/*/dist/
+packages/*/src/generated/
+apps/*/dist/
+docker/
+docs/
