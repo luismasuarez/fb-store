@@ -55,10 +55,12 @@ fb-store/
 ├── tsconfig.base.json             # Base TS config compartida
 ├── .env.example
 ├── docker-compose.yml
+├── .dockerignore                 # Contexto de build optimizado
+├── docker-compose.yml            # Stack postgres + redis + api + workers
 ├── docker/
-│   ├── Dockerfile.api
-│   ├── Dockerfile.scraper
-│   └── Dockerfile.ai-processor
+│   ├── Dockerfile.api            # Multi-stage: NestJS + Fastify
+│   ├── Dockerfile.scraper        # Multi-stage + Playwright browsers
+│   └── Dockerfile.ai-processor   # Multi-stage: BullMQ worker
 │
 ├── apps/                          # Aplicaciones desplegables
 │   ├── api/                       # NestJS 11 + Fastify 5
@@ -121,24 +123,19 @@ fb-store/
 │   │           ├── whatsapp.ts
 │   │           └── sanitize.ts
 │   │
-│   ├── scraper/                   # Playwright + BullMQ worker
+│   ├── scraper/                   # Playwright + BullMQ worker (Fase 0.1)
 │   │   ├── package.json
 │   │   ├── tsconfig.json
 │   │   └── src/
-│   │       ├── index.ts
-│   │       ├── browser.ts         # launchPersistentContext
-│   │       ├── login.ts           # pnpm setup:login
-│   │       ├── extractor.ts       # Extracción DOM
-│   │       ├── behavior.ts        # Rate limiting
-│   │       └── config.ts
+│   │       ├── index.ts           # Entry skeleton
+│   │       ├── login.ts           # pnpm setup:login (headed)
+│   │       └── ...                # browser, extractor, behavior (pendientes)
 │   │
-│   └── ai-processor/              # BullMQ worker
+│   └── ai-processor/              # BullMQ worker (Fase 2)
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── src/
-│           ├── index.ts
-│           ├── worker.ts
-│           └── extract.ts
+│           └── index.ts           # Entry skeleton
 │
 └── profiles/                      # Perfiles Chrome (gitignored)
     └── cuenta-1/
@@ -159,7 +156,7 @@ fb-store/
 |---|---|
 | `shared` | `@prisma/client@7.8.0`, `@prisma/adapter-pg`, `pg`, `zod@4.4.3`; dev: `prisma@7.8.0`, `@types/pg` |
 | `scraper` | `playwright@1.52.x`, `bullmq@5.77.3`, `sanitize-html`, `@fb-store/shared` |
-| `ai-processor` | `bullmq@5.77.3`, `openai`, `@anthropic-ai/sdk`, `@fb-store/shared` |
+| `ai-processor` | `bullmq@5.77.3`, `ioredis`, `@fb-store/shared` (provider SDKs pendientes Fase 2) |
 | `api` | `@nestjs/core@11.1.24`, `@nestjs/platform-fastify@11.1.24`, `@nestjs/bullmq@11.0.4`, `@nestjs/config@11.x`, `@nestjs/swagger@11.x`, `@anatine/zod-nestjs`, `ioredis`, `bullmq@5.77.3`, `@fb-store/shared` |
 | `expo` | Expo SDK 56 + RN 0.85 + React 19.2.3, `expo-image`, `expo-linking`, `@shopify/flash-list`, `@react-navigation/native@7.2.5`, `native-stack@7.16.0`, `bottom-tabs@7.16.2`, `@tanstack/react-query@5.100.14`, `zustand@5.0.13` |
 
@@ -774,67 +771,37 @@ expo-linking ~56.0.11           ← Deep links WhatsApp
 
 ### Docker Compose
 
-```yaml
-services:
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
+El stack completo se levanta con un comando:
 
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: fbstore
-      POSTGRES_USER: fbstore
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
-
-  api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.api
-    ports:
-      - "3000:3000"
-    env_file: .env
-    depends_on:
-      - db
-      - redis
-    restart: unless-stopped
-
-  scraper:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.scraper
-    env_file: .env
-    volumes:
-      - ./profiles:/data/profiles
-    depends_on:
-      - redis
-      - db
-    restart: unless-stopped
-
-  ai-processor:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.ai-processor
-    env_file: .env
-    depends_on:
-      - redis
-      - db
-    restart: unless-stopped
-
-volumes:
-  pgdata:
+```bash
+npm run docker:up
 ```
+
+Servicios:
+
+| Servicio | Imagen/Dockerfile | Puerto | Healthcheck |
+|---|---|---|---|
+| postgres | `postgres:18-alpine` | 5432 | `pg_isready` |
+| redis | `redis:7-alpine` | 6379 | `redis-cli ping` |
+| api | `docker/Dockerfile.api` | 3000 | `GET /api/health` |
+| scraper | `docker/Dockerfile.scraper` | — | — |
+| ai-processor | `docker/Dockerfile.ai-processor` | — | — |
+
+El compose real está versionado en `docker-compose.yml`. Características:
+
+- Dependencias encadenadas con `condition: service_healthy`
+- Red interna dedicada `fb-store-net`
+- Volúmenes nombrados para persistencia de datos (`postgres-data`, `redis-data`)
+- Variables de entorno vía `.env` + overrides explícitos por servicio
 
 ### Comandos útiles
 
 ```bash
+# Stack completo
+npm run docker:up           # build + levantar
+npm run docker:down         # detener
+npm run docker:logs         # logs en tiempo real
+
 # Setup de perfil (1 vez en PC local)
 pnpm setup:login
 
@@ -844,8 +811,9 @@ pnpm db:studio
 # Ver jobs en cola
 pnpm dlx bullmq-dashboard
 
-# Logs del scraper
+# Logs individuales
 docker compose logs -f scraper
+docker compose logs -f api
 ```
 
 ### Setup de perfiles
@@ -897,19 +865,40 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 
 ---
 
-### Fase 0: "Primeros datos" (ahora)
+### Fase S: Scaffold (completado)
 
-> Objetivo: scrapear 1-2 grupos y ver los posts en crudo en la app. Admin vía Prisma Studio.
+> Objetivo: monorepo funcional + API health check + Docker full-stack.
 
-| # | Tarea | Dependencias clave | Estado |
+| # | Tarea | Estado |
+|---|---|---|
+| S.1 | pnpm + Turborepo scaffold (workspaces, turbo.json, tsconfig.base) | 🟢 |
+| S.2 | `shared`: Prisma v7 con adapter-pg + schema + prisma.config.ts + migración init | 🟢 |
+| S.3 | `shared`: types base + Zod schemas + utils (sanitize, whatsapp) esqueleto | 🟢 |
+| S.4 | `api`: NestJS 11 + Fastify 5 + PrismaModule + PrismaService + health endpoint | 🟢 |
+| S.5 | Docker multi-stage: 3 Dockerfiles (api, scraper, ai-processor) | 🟢 |
+| S.6 | `docker-compose.yml` con postgres + redis + red dedicada + volúmenes + healthchecks | 🟢 |
+| S.7 | Container hardening: HEALTHCHECK, non-root user, Playwright permissions, .dockerignore | 🟢 |
+| S.8 | Dev fix: tsconfig para decorators NestJS en `pnpm dev` | 🟢 |
+| S.9 | Module alignment: Prisma `moduleFormat=cjs`, todo CommonJS end-to-end | 🟢 |
+| S.10 | README + scripts npm (`docker:up`, `docker:down`, `docker:logs`) | 🟢 |
+
+Verificación: `docker compose up --build` → `curl localhost:3000/api/health` → `{"status":"ok"}`
+
+---
+
+### Fase 0: "Primeros datos" (siguiente)
+
+> Objetivo: scraper funcional con login real, primeros posts en DB, visualización vía Prisma Studio o API.
+
+| # | Tarea | Dependencias | Estado |
 |---|---|---|---|
-| 0.1 | Turborepo scaffold con TUI + pnpm workspaces + turbo.json | `create-turbo@latest` | 🔴 |
-| 0.2 | `shared`: Prisma v7 con adapter-pg + schema + prisma.config.ts + migración init | `prisma@7.8.0`, `@prisma/adapter-pg`, `pg`, `zod@4.4.3` | 🔴 |
-| 0.3 | `shared`: types base + schemas Zod + utils (sanitize, whatsapp) | `zod@4.4.3` | 🔴 |
-| 0.4 | `api`: NestJS 11 + Fastify 5 + PrismaService + módulos esqueleto | `@nestjs/*`, `fastify@5.8.5`, `@anatine/zod-nestjs` | 🔴 |
-| 0.5 | `api`: endpoints GET /api/raw-posts + GET /api/listings | `@nestjs/swagger` | 🔴 |
-| 0.6 | Docker Compose (PostgreSQL + Redis) + scripts root | — | 🔴 |
-| 0.7 | Verificación: pnpm install → prisma generate → migrate → dev → health check | — | 🔴 |
+| 0.1 | `scraper`: setup:login funcional (Playwright headed → perfil persistente) | Playwright 1.52 | 🔴 |
+| 0.2 | `scraper`: extractor DOM + sanitize + guardar en DB vía shared Prisma | `@fb-store/shared`, `sanitize-html` | 🔴 |
+| 0.3 | `scraper`: BullMQ worker con rate limiting progresivo | BullMQ, Redis | 🔴 |
+| 0.4 | `api`: endpoints GET /api/raw-posts + GET /api/listings | `@nestjs/swagger` | 🔴 |
+| 0.5 | `api`: seed script + ver datos reales en DB | — | 🔴 |
+| 0.6 | Prisma Studio como admin liviano | Prisma | 🟡 |
+| 0.7 | Scrape manual desde API (trigger + status) | BullMQ | 🔴 |
 
 ---
 
@@ -970,7 +959,61 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 
 ---
 
+---
+
+## Next Steps — Próxima sesión
+
+### Objetivo inmediato: Scraper funcional + primeros datos en DB
+
+1. **`setup:login` funcional**
+   - Probar `pnpm setup:login` → Playwright headed, login manual, perfil persistente en `profiles/cuenta-1/`
+   - Playwright install chromium + deps en máquina local
+
+2. **Extractor DOM**
+   - Implementar `packages/scraper/src/extractor.ts` con selectores reales de Facebook Groups
+   - Sanitizar texto con `sanitize-html` vía `packages/shared/src/utils/sanitize.ts`
+   - Extraer: fbPostId, texto, imágenes, autor, timestamp
+
+3. **Persistencia**
+   - Conectar scraper con `@fb-store/shared` Prisma client
+   - Guardar raw posts en tabla `raw_posts` + insertar placeholder en `listings`
+   - Probar migración + seed manual
+
+4. **BullMQ worker**
+   - Encolar job de scraping desde scheduler simple
+   - Worker procesa grupo, extrae posts, guarda, reporta en `scrape_logs`
+   - Rate limiting progresivo (3-5s entre scrolls, 10-15min entre grupos)
+
+5. **API endpoints básicos**
+   - `GET /api/raw-posts` — listar posts crudos
+   - `GET /api/listings` — listar listings con paginación + filtros
+   - Swagger/OpenAPI documentación automática
+
+6. **Verificación final**
+   - Scraper corre en contenedor Docker
+   - API expone datos scrapeados
+   - Prisma Studio muestra todo
+
+---
+
 ## Changelog
+
+### 2026-05-26
+
+| Tipo | Descripción |
+|---|---|
+| **Completado** | Fase S (Scaffold): monorepo funcional, API health check, Docker full-stack. |
+| **Actualización** | `docker-compose.yml` reescrito con postgres + redis + red dedicada + healthchecks encadenados. |
+| **Actualización** | `Dockerfile.api`: agregado `HEALTHCHECK`, `syntax=docker/dockerfile:1`. |
+| **Actualización** | `Dockerfile.scraper`: Playwright browsers heredan de `deps`, `--chown=fbstore`, env `PLAYWRIGHT_BROWSERS_PATH`. |
+| **Actualización** | `packages/ai-processor`: creado skeleton (package.json, tsconfig.json, src/index.ts). |
+| **Actualización** | Prisma `moduleFormat=cjs` (fix runtime ESM/CJS mismatch con Node 22). |
+| **Actualización** | `.env.example` actualizado con defaults para compose. |
+| **Actualización** | `.dockerignore` versionado en git (quitado de `.gitignore`). |
+| **Actualización** | Scripts npm: `docker:up`, `docker:down`, `docker:logs`. |
+| **Creación** | `README.md` con stack, quickstart, estructura y roadmap. |
+| **Actualización** | Roadmap: Fase S (Scaffold) agregada con items completados. Fase 0 redefinida con scraper real. |
+| **Actualización** | Sección "Next Steps" agregada con prioridades para próxima sesión. |
 
 ### 2026-05-25
 
@@ -991,4 +1034,4 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 
 ---
 
-*Este documento se actualiza a medida que el proyecto evoluciona. Última modificación: 2026-05-25.*
+*Este documento se actualiza a medida que el proyecto evoluciona. Última modificación: 2026-05-26.*
