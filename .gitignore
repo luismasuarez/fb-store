@@ -5,4 +5,22 @@ profiles/
 *.log
 .env
 .env.local
+.env.*.local
 packages/shared/src/generated/
+apps/*/dist/
+apps/*/node_modules/
+packages/*/dist/
+packages/*/node_modules/
+
+# Docker
+.dockerignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
