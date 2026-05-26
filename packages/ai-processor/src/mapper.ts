@@ -1,5 +1,13 @@
 import type { StructuredPropertyListing } from "@fb-store/shared";
 
+function toBoolean(val: unknown): boolean | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "boolean") return val;
+  if (val === 1 || val === "1" || val === "true") return true;
+  if (val === 0 || val === "0" || val === "false") return false;
+  return null;
+}
+
 export interface ListingData {
   fbPostId: string;
   title: string | null;
@@ -59,8 +67,8 @@ export function mapToListing(
     bathrooms: r.propertyDetails.bathrooms,
     totalM2: r.propertyDetails.totalM2,
     floors: r.propertyDetails.floors,
-    parking: r.propertyDetails.parking,
-    furnished: r.propertyDetails.furnished,
+    parking: toBoolean(r.propertyDetails.parking),
+    furnished: toBoolean(r.propertyDetails.furnished),
     aiRawData: r,
     rawPosts: { connect: { id: rawPost.id } },
   };
