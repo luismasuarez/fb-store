@@ -14,7 +14,6 @@ export class ListingsService {
     const where: any = {};
     if (params.listingType) where.listingType = params.listingType;
     if (params.propertyType) where.propertyType = params.propertyType;
-    if (params.province) where.province = params.province;
     if (params.municipality) where.municipality = params.municipality;
     if (params.neighborhood) where.neighborhood = params.neighborhood;
     if (params.bedrooms !== undefined) where.bedrooms = Number(params.bedrooms);
@@ -22,11 +21,21 @@ export class ListingsService {
     if (params.currency) where.currency = params.currency;
     if (params.status) where.status = params.status;
 
+    const orConditions: any[] = [];
+
+    if (params.province) {
+      orConditions.push({ province: params.province }, { municipality: params.province });
+    }
+
     if (params.search) {
-      where.OR = [
+      orConditions.push(
         { title: { contains: params.search, mode: "insensitive" } },
         { description: { contains: params.search, mode: "insensitive" } },
-      ];
+      );
+    }
+
+    if (orConditions.length > 0) {
+      where.OR = orConditions;
     }
 
     if (params.minPrice !== undefined || params.maxPrice !== undefined) {
