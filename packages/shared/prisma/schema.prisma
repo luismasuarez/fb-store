@@ -12,7 +12,7 @@ model Listing {
   id            String    @id @default(uuid()) @db.Uuid
   fbPostId      String    @unique @map("fb_post_id")
   title         String?
-  price         Decimal?  @db.Decimal(10, 2)
+  price         Decimal?  @db.Decimal(12, 2)
   currency      String    @default("Bs")
   category      String?
   description   String?
@@ -32,10 +32,28 @@ model Listing {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
+  listingType      String?  @map("listing_type")
+  propertyType     String?  @map("property_type")
+  summaryShort     String?  @map("summary_short")
+  province         String?
+  municipality     String?
+  neighborhood     String?
+  bedrooms         Int?
+  bathrooms        Float?
+  totalM2          Int?     @map("total_m2")
+  floors           Int?
+  parking          Boolean?
+  furnished        Boolean?
+  aiRawData        Json?    @map("ai_raw_data")
+
   rawPosts RawPost[]
 
   @@index([category])
   @@index([status])
+  @@index([listingType])
+  @@index([propertyType])
+  @@index([province])
+  @@index([bedrooms])
   @@index([scrapedAt(sort: Desc)])
   @@map("listings")
 }

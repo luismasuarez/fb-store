@@ -2,13 +2,13 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
 import { getPrismaClient, getProvider } from "@fb-store/shared";
-import type { StructuredListing } from "@fb-store/shared";
+import type { StructuredPropertyListing } from "@fb-store/shared";
 
 const BATCH_SIZE = 10;
 
 async function processPost(
   post: { id: string; textContent: string | null; fbPostId: string; groupId: string | null; rawData: any },
-  provider: { extract(rawText: string): Promise<StructuredListing> },
+  provider: { extract(rawText: string): Promise<StructuredPropertyListing> },
 ): Promise<string | null> {
   const text = post.textContent || "";
   if (text.length < 20) {
@@ -17,25 +17,37 @@ async function processPost(
   }
 
   try {
-    const result = await provider.extract(text);
+    const r = await provider.extract(text);
     const prisma = getPrismaClient();
 
     await prisma.listing.create({
       data: {
         fbPostId: post.fbPostId,
-        title: result.title,
-        price: result.price,
-        currency: result.currency || "Bs",
-        category: result.category,
-        description: result.description,
-        contactPhone: result.contactPhone,
-        contactName: result.contactName,
-        location: result.location,
-        status: result.isAvailable ? "active" : "sold",
-        aiConfidence: result.confidence,
+        title: r.title,
+        price: r.price.amount,
+        currency: r.price.currency || "Bs",
+        description: r.descriptionClean,
         rawText: text.substring(0, 10000),
-        sourceGroupId: post.groupId,
         images: post.rawData?.images || [],
+        sourceGroupId: post.groupId,
+        status: r.confidenceScore >= 0.3 ? "active" : "sold",
+        aiConfidence: r.confidenceScore,
+        contactPhone: r.contact.phones?.[0] || null,
+        contactName: r.contact.facebookName || null,
+        location: r.location.address || r.location.municipality || r.location.province || null,
+        listingType: r.listingType,
+        propertyType: r.propertyType,
+        summaryShort: r.summaryShort,
+        province: r.location.province,
+        municipality: r.location.municipality,
+        neighborhood: r.location.neighborhood,
+        bedrooms: r.propertyDetails.bedrooms,
+        bathrooms: r.propertyDetails.bathrooms,
+        totalM2: r.propertyDetails.totalM2,
+        floors: r.propertyDetails.floors,
+        parking: r.propertyDetails.parking,
+        furnished: r.propertyDetails.furnished,
+        aiRawData: r as any,
         rawPosts: { connect: { id: post.id } },
       },
     });

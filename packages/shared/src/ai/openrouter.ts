@@ -1,4 +1,4 @@
-import type { AIProvider, StructuredListing } from "./provider";
+import type { AIProvider, StructuredPropertyListing } from "./provider";
 import { PROMPT_SYSTEM } from "./registry";
 
 const MAX_RETRIES = 2;
@@ -13,7 +13,7 @@ export class OpenRouterProvider implements AIProvider {
     private model: string,
   ) {}
 
-  async extract(rawText: string, _imageUrls?: string[]): Promise<StructuredListing> {
+  async extract(rawText: string, _imageUrls?: string[]): Promise<StructuredPropertyListing> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -35,7 +35,7 @@ export class OpenRouterProvider implements AIProvider {
     throw lastError;
   }
 
-  private async _call(rawText: string): Promise<StructuredListing> {
+  private async _call(rawText: string): Promise<StructuredPropertyListing> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -75,7 +75,7 @@ export class OpenRouterProvider implements AIProvider {
         throw new Error("OpenRouter: empty response");
       }
 
-      return JSON.parse(content) as StructuredListing;
+      return JSON.parse(content) as StructuredPropertyListing;
     } finally {
       clearTimeout(timer);
     }
