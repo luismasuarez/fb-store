@@ -3,9 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "tsx --tsconfig apps/api/tsconfig.json apps/api/src/main.ts",
+    "dev": "pnpm --filter @fb-store/api dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "dev:admin": "pnpm --filter @fb-store/admin dev",
     "db:generate": "cd packages/shared && npx prisma generate",
     "db:migrate": "cd packages/shared && DATABASE_URL=postgresql://fbstore:fbstore@localhost:5432/fbstore npx prisma migrate dev",
     "db:studio": "cd packages/shared && npx prisma studio",

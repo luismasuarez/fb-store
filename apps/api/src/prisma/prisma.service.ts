@@ -4,13 +4,10 @@ import type { PrismaClient } from "@fb-store/shared";
 
 @Injectable()
 export class PrismaService implements OnModuleInit {
-  public client: PrismaClient;
-
-  constructor() {
-    this.client = getPrismaClient() as unknown as PrismaClient;
-  }
+  public client!: PrismaClient;
 
   async onModuleInit() {
+    this.client = getPrismaClient() as unknown as PrismaClient;
     await this.client.$connect();
   }
 }

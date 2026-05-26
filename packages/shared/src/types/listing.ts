@@ -21,6 +21,19 @@ export interface Listing {
   processedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  listingType: string | null;
+  propertyType: string | null;
+  summaryShort: string | null;
+  province: string | null;
+  municipality: string | null;
+  neighborhood: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  totalM2: number | null;
+  floors: number | null;
+  parking: boolean | null;
+  furnished: boolean | null;
+  aiRawData: unknown;
 }
 
 export interface RawPostDb {

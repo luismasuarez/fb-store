@@ -1,3 +1,5 @@
+import { config } from "dotenv";
+import { resolve } from "path";
 import { NestFactory } from "@nestjs/core";
 import {
   FastifyAdapter,
@@ -5,6 +7,8 @@ import {
 } from "@nestjs/platform-fastify";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+
+config({ path: resolve(__dirname, "../../../.env") });
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
