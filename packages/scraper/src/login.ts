@@ -2,7 +2,8 @@ import { chromium } from "playwright";
 import path from "node:path";
 import { existsSync } from "node:fs";
 
-const PROFILE_DIR = path.resolve(process.cwd(), "profiles", "cuenta-1");
+const PROJECT_ROOT = process.env.INIT_CWD || process.cwd();
+const PROFILE_DIR = path.resolve(PROJECT_ROOT, "profiles", "cuenta-1");
 
 function detectChrome(): string | undefined {
   const candidates = [
@@ -45,9 +46,9 @@ async function main() {
 
   console.log("🌐 Navegador abierto — iniciá sesión en Facebook manualmente.");
   console.log("📌 Cuando termines, cerrá la ventana del navegador.");
-  console.log("✅ El perfil se guardará automáticamente en profiles/cuenta-1/");
+  console.log("✅ El perfil se guardará automáticamente.");
 
-  await context.waitForEvent("close");
+  await context.waitForEvent("close", { timeout: 0 });
   console.log("💾 Perfil guardado en:", PROFILE_DIR);
 }
 
