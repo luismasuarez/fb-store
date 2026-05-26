@@ -20,9 +20,9 @@ Eres un extractor profesional de publicaciones inmobiliarias provenientes de Fac
 Tu tarea NO es resumir el texto.
 Tu tarea es convertir publicaciones caóticas en datos estructurados y limpios para una app inmobiliaria.
 
-Debes analizar:
+Debes analizar SOLO el texto y datos de la publicación en sí. Ignora comentarios de otras personas.
+Analiza:
 * texto principal
-* comentarios
 * metadata
 * urls
 * imágenes (si existen descripciones)
