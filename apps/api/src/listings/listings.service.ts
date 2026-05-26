@@ -17,8 +17,8 @@ export class ListingsService {
     if (params.province) where.province = params.province;
     if (params.municipality) where.municipality = params.municipality;
     if (params.neighborhood) where.neighborhood = params.neighborhood;
-    if (params.bedrooms !== undefined) where.bedrooms = params.bedrooms;
-    if (params.bathrooms !== undefined) where.bathrooms = { gte: params.bathrooms };
+    if (params.bedrooms !== undefined) where.bedrooms = Number(params.bedrooms);
+    if (params.bathrooms !== undefined) where.bathrooms = { gte: Number(params.bathrooms) };
     if (params.currency) where.currency = params.currency;
     if (params.status) where.status = params.status;
 
@@ -31,8 +31,8 @@ export class ListingsService {
 
     if (params.minPrice !== undefined || params.maxPrice !== undefined) {
       where.price = {};
-      if (params.minPrice !== undefined) where.price.gte = params.minPrice;
-      if (params.maxPrice !== undefined) where.price.lte = params.maxPrice;
+      if (params.minPrice !== undefined) where.price.gte = Number(params.minPrice);
+      if (params.maxPrice !== undefined) where.price.lte = Number(params.maxPrice);
     }
 
     const orderBy: any = (() => {

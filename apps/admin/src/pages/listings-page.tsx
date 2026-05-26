@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { useListings } from "@/hooks/use-listings";
 import { ListingCard } from "@/components/listings/listing-card";
 import { ListingTable } from "@/components/listings/listing-table";
@@ -7,21 +8,44 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Listing } from "@/types";
 
-const DEFAULT_FILTERS: FilterValues = {
-  listingType: "",
-  propertyType: "",
-  province: "",
-  bedrooms: "",
-  minPrice: "",
-  maxPrice: "",
-  sort: "",
-  search: "",
-};
+function filtersFromParams(params: URLSearchParams): FilterValues {
+  return {
+    listingType: params.get("listing_type") || "",
+    propertyType: params.get("property_type") || "",
+    province: params.get("province") || "",
+    bedrooms: params.get("bedrooms") || "",
+    minPrice: params.get("min_price") || "",
+    maxPrice: params.get("max_price") || "",
+    sort: params.get("sort") || "",
+    search: params.get("search") || "",
+  };
+}
+
+function filtersToParams(filters: FilterValues, page: number): Record<string, string> {
+  const p: Record<string, string> = {};
+  if (filters.listingType) p.listing_type = filters.listingType;
+  if (filters.propertyType) p.property_type = filters.propertyType;
+  if (filters.province) p.province = filters.province;
+  if (filters.bedrooms) p.bedrooms = filters.bedrooms;
+  if (filters.minPrice) p.min_price = filters.minPrice;
+  if (filters.maxPrice) p.max_price = filters.maxPrice;
+  if (filters.sort) p.sort = filters.sort;
+  if (filters.search) p.search = filters.search;
+  if (page > 1) p.page = String(page);
+  return p;
+}
 
 export function ListingsPage() {
-  const [view, setView] = useState<"grid" | "table">("grid");
-  const [filters, setFilters] = useState<FilterValues>(DEFAULT_FILTERS);
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = filtersFromParams(searchParams);
+  const page = Number(searchParams.get("page") || "1");
+
+  const updateParams = useCallback(
+    (newFilters: FilterValues, newPage: number) => {
+      setSearchParams(filtersToParams(newFilters, newPage), { replace: true });
+    },
+    [setSearchParams],
+  );
 
   const apiFilters = {
     ...(filters.listingType && { listingType: filters.listingType }),
@@ -38,10 +62,14 @@ export function ListingsPage() {
 
   const { data, isLoading } = useListings(apiFilters);
 
-  const handleFiltersChange = useCallback((vals: FilterValues) => {
-    setFilters(vals);
-    setPage(1);
-  }, []);
+  const handleFiltersChange = useCallback(
+    (vals: FilterValues) => {
+      updateParams(vals, 1);
+    },
+    [updateParams],
+  );
+
+  const currentView = searchParams.get("view") === "table" ? "table" : "grid";
 
   return (
     <div className="space-y-6">
@@ -49,16 +77,24 @@ export function ListingsPage() {
         <h1 className="text-2xl font-bold">Listings</h1>
         <div className="flex gap-2">
           <Button
-            variant={view === "grid" ? "default" : "outline"}
+            variant={currentView === "grid" ? "default" : "outline"}
             size="sm"
-            onClick={() => setView("grid")}
+            onClick={() => setSearchParams((prev) => { prev.set("view", "grid"); return prev; }, { replace: true })}
           >
             Grid
           </Button>
           <Button
-            variant={view === "table" ? "default" : "outline"}
+            variant={currentView === "table" ? "default" : "outline"}
             size="sm"
-            onClick={() => setView("table")}
+            onClick={() =>
+              setSearchParams(
+                (prev) => {
+                  prev.set("view", "table");
+                  return prev;
+                },
+                { replace: true },
+              )
+            }
           >
             Tabla
           </Button>
@@ -77,7 +113,7 @@ export function ListingsPage() {
             </div>
           ))}
         </div>
-      ) : view === "grid" ? (
+      ) : currentView === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {data?.data.map((listing) => (
             <ListingCard key={listing.id} listing={listing as unknown as Listing} />
@@ -92,25 +128,25 @@ export function ListingsPage() {
         <ListingTable listings={data?.data as unknown as Listing[] || []} />
       )}
 
-      {/* Pagination */}
       {data?.pagination && data.pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            onClick={() => updateParams(filters, page - 1)}
           >
             Anterior
           </Button>
           <span className="text-sm text-muted-foreground">
             Página {data.pagination.page} de {data.pagination.totalPages}
+            ({data.pagination.total} total)
           </span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= data.pagination.totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => updateParams(filters, page + 1)}
           >
             Siguiente
           </Button>
