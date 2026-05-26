@@ -9,73 +9,51 @@ export interface RawPost {
 }
 
 export const EXTRACTOR_SCRIPT = `
-window.__fbScrape = (maxScrolls, delayMs) => {
-  const sanitize = (raw) => raw
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\\s+/g, " ")
-    .replace(/\\n{3,}/g, "\\n\\n")
-    .trim();
+(function() {
+  var feed = document.querySelector('[role="feed"]');
+  if (!feed) return [];
+  var postEls = feed.querySelectorAll('[aria-posinset]');
+  var seen = new Map();
+  var extracted = [];
 
-  const extractPost = (el) => {
-    const msgSel = '[data-ad-preview="message"], [data-ad-comet-preview="message"]';
-    const text = sanitize(el.querySelector(msgSel)?.textContent ?? "");
-    if (!text) return null;
+  for (var j = 0; j < postEls.length; j++) {
+    var el = postEls[j];
+    if (el.querySelector('[data-virtualized="true"]')) continue;
 
-    const images = Array.from(el.querySelectorAll('img[src*="scontent"], img[src*="fbcdn"]'))
-      .map(img => img.src)
-      .filter(src => src.includes("/") && !src.includes("emoji"));
-
-    const authorEl = el.querySelector("h2 a, h3 a, h4 a, strong a");
-    const timeEl = el.querySelector("abbr");
-    const linkEl = el.querySelector('a[href*="/posts/"], a[href*="/photo/"]');
-    const storeAttr = el.getAttribute("data-store");
-
-    let fbPostId = "";
-    try {
-      const parsed = JSON.parse(storeAttr || "{}");
-      fbPostId = parsed?.postID || parsed?.share_id || "";
-    } catch {
-      const parts = (linkEl?.getAttribute("href") || "").split("/posts/");
-      fbPostId = parts[1]?.split("?")[0] || "";
+    var links = el.querySelectorAll('a');
+    var photoId = "", photoHref = "";
+    for (var k = 0; k < links.length; k++) {
+      var href = links[k].getAttribute("href") || "";
+      var m = href.match(/fbid=(\\d+)/);
+      if (m) { photoId = m[1]; photoHref = href; break; }
     }
-    if (!fbPostId) fbPostId = crypto.randomUUID();
+    if (!photoId || seen.has(photoId)) continue;
+    seen.set(photoId, true);
 
-    return {
-      fbPostId,
-      text,
-      images,
-      author: authorEl?.textContent ?? "",
-      authorUrl: authorEl?.getAttribute("href") ?? "",
-      timestamp: timeEl?.getAttribute("title") ?? timeEl?.textContent ?? "",
-      postUrl: linkEl?.getAttribute("href") ?? "",
-    };
-  };
-
-  const seen = new Map();
-  const units = () => document.querySelectorAll('[data-pagelet^="FeedUnit"], [role="article"]');
-
-  return (async () => {
-    for (let i = 0; i < maxScrolls; i++) {
-      for (const el of units()) {
-        const p = extractPost(el);
-        if (p && !seen.has(p.fbPostId)) seen.set(p.fbPostId, p);
-      }
-      if (i < maxScrolls - 1) {
-        window.scrollBy(0, 900);
-        await new Promise(r => setTimeout(r, delayMs));
-      }
+    var imgs = [];
+    var imgEls = el.querySelectorAll('img[src*="scontent"]');
+    for (var n = 0; n < imgEls.length; n++) {
+      var src = imgEls[n].src;
+      if (src.indexOf("/") > -1) imgs.push(src);
     }
-    return Array.from(seen.values());
-  })();
-};
+
+    var rawText = (el.innerText || "").trim();
+    var cleanText = rawText.replace(/(Facebook\\s*){2,}/g, "").replace(/\\s+/g, " ").trim();
+
+    var authorLink = el.querySelector('a[href*="/user/"]');
+    var abbr = el.querySelector("abbr");
+    var timeEl = el.querySelector("time");
+
+    extracted.push({
+      fbPostId: "fb-" + photoId,
+      text: cleanText || "(solo imagenes)",
+      images: imgs,
+      author: authorLink ? (authorLink.textContent || "").split("\\n")[0].trim() : "",
+      authorUrl: authorLink ? authorLink.getAttribute("href") : "",
+      timestamp: abbr ? (abbr.getAttribute("title") || abbr.textContent) : (timeEl ? timeEl.textContent : ""),
+      postUrl: photoHref,
+    });
+  }
+  return extracted;
+})()
 `;
-
-export function buildExtractorScript(maxScrolls: number, delayMs: number): string {
-  return `window.__fbScrape(${maxScrolls}, ${delayMs})`;
-}
