@@ -10,7 +10,10 @@
     "db:migrate": "cd packages/shared && DATABASE_URL=postgresql://fbstore:fbstore@localhost:5432/fbstore npx prisma migrate dev",
     "db:studio": "cd packages/shared && npx prisma studio",
     "db:push": "cd packages/shared && DATABASE_URL=postgresql://fbstore:fbstore@localhost:5432/fbstore npx prisma db push",
-    "setup:login": "pnpm --filter @fb-store/scraper setup:login"
+    "setup:login": "pnpm --filter @fb-store/scraper setup:login",
+    "docker:up": "docker compose --env-file .env up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
     "tsx": "^4.22.3",
