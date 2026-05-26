@@ -33,6 +33,16 @@ async function scrapeGroup(
       await page.waitForTimeout(2000);
     }
 
+    await page.evaluate(() => {
+      const buttons = document.querySelectorAll<HTMLElement>('[role="button"]');
+      for (const btn of buttons) {
+        if (btn.textContent?.includes("Ver más")) {
+          btn.click();
+        }
+      }
+    });
+    await page.waitForTimeout(1500);
+
     const extractFn = EXTRACTOR_SCRIPT;
     const raw = (await page.evaluate(extractFn)) as any;
     const posts: RawPost[] = Array.isArray(raw) ? raw : [];

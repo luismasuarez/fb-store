@@ -21,10 +21,12 @@ Analiza el texto y responde SOLO con JSON válido, sin explicaciones.
 Campos:
 - title: nombre del producto (máx 80 chars). null si no identificas producto.
 - price: número sin símbolos. null si no hay precio.
+  IMPORTANTE: En Cuba es común referirse a intersecciones de calles, ej: "venta en 57 y 92" son CALLES (Calle 57 y Calle 92), NO precios.
+  Solo extrae price si hay indicador claro de moneda ($, USD, CUP, MLC, "precio", "cuesta", "cuestan", "pago", "contado") o el contexto es inequívoco.
 - currency: "Bs" o "USD". null si no se especifica.
 - category: una de: casa, cocina, aseo, electronica, ropa, vehiculos, muebles, otros.
 - description: texto completo del producto.
-- contactPhone: número venezolano (0412, 0424, 0416, 0426). null si no aparece.
+- contactPhone: número venezolano (0412, 0424, 0416, 0426) o cubano (5, 6, 7 dígitos). null si no aparece.
 - contactName: nombre del vendedor. null si no aparece.
 - location: ciudad o zona. null si no aparece.
 - isAvailable: true/false. false si dice "vendido", "reservado", "dado".
@@ -34,4 +36,5 @@ Reglas:
 - Si el texto no parece una publicación de venta, confidence < 0.3
 - No inventes datos. Si no está en el texto, null.
 - Precios en bolívares asume Bs, en dólares asume USD.
+- En Cuba los precios de propiedades suelen estar en las imágenes, no en el texto. Si no hay precio explícito en el texto, price: null.
 `;
