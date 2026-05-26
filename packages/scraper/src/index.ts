@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
 config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
-import { getPrismaClient } from "@fb-store/shared";
+import { getPrismaClient, sanitizeFacebookText } from "@fb-store/shared";
 import { createContext } from "./browser";
 import { EXTRACTOR_SCRIPT } from "./extractor";
 import type { RawPost } from "./extractor";
@@ -60,7 +60,7 @@ async function savePosts(posts: RawPost[], groupId: string) {
           fbPostId: post.fbPostId,
           groupId,
           rawData: post as unknown as any,
-          textContent: post.text.substring(0, 10000),
+          textContent: sanitizeFacebookText(post.text).substring(0, 10000),
           processed: false,
         },
       });
