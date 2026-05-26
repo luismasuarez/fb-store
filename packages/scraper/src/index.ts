@@ -49,6 +49,30 @@ async function scrapeGroup(
     const valid = posts.filter(p => p.text.length > 20);
     console.log(`📦 ${valid.length} posts extraídos`);
 
+    for (const post of valid) {
+      if (post.images.length > 0) {
+        const imgs: { url: string; mime: string; data: string }[] = [];
+        for (const imgUrl of post.images) {
+          try {
+            const dataUrl = await page.evaluate(async (url) => {
+              const res = await fetch(url);
+              const blob = await res.blob();
+              return new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+            }, imgUrl);
+            const [header, data] = dataUrl.split(",");
+            imgs.push({ url: imgUrl, mime: header.match(/data:(.*?);/)?.[1] || "image/jpeg", data });
+          } catch {
+            imgs.push({ url: imgUrl, mime: "image/jpeg", data: "" });
+          }
+        }
+        post.images = imgs as any;
+      }
+    }
+
     if (valid.length > 0) {
       console.log(`📝 Ejemplo: ${valid[0].text.substring(0, 150)}`);
     }
