@@ -29,15 +29,15 @@ export const ListingQuerySchema = PaginationSchema.extend({
 });
 
 export const RealEstateListingQuerySchema = PaginationSchema.extend({
-  listingType: ListingTypeEnum.optional(),
-  propertyType: PropertyTypeEnum.optional(),
+  listing_type: ListingTypeEnum.optional(),
+  property_type: PropertyTypeEnum.optional(),
   province: z.string().optional(),
   municipality: z.string().optional(),
   neighborhood: z.string().optional(),
   bedrooms: z.coerce.number().int().min(0).optional(),
   bathrooms: z.coerce.number().min(0).optional(),
-  minPrice: z.coerce.number().min(0).optional(),
-  maxPrice: z.coerce.number().min(0).optional(),
+  min_price: z.coerce.number().min(0).optional(),
+  max_price: z.coerce.number().min(0).optional(),
   currency: z.string().optional(),
   status: ListingStatusEnum.default("active"),
   search: z.string().optional(),

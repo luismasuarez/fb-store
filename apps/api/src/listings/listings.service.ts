@@ -12,8 +12,8 @@ export class ListingsService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (params.listingType) where.listingType = params.listingType;
-    if (params.propertyType) where.propertyType = params.propertyType;
+    if (params.listing_type) where.listingType = params.listing_type;
+    if (params.property_type) where.propertyType = params.property_type;
     if (params.municipality) where.municipality = params.municipality;
     if (params.neighborhood) where.neighborhood = params.neighborhood;
     if (params.bedrooms !== undefined) where.bedrooms = Number(params.bedrooms);
@@ -24,7 +24,7 @@ export class ListingsService {
     const orConditions: any[] = [];
 
     if (params.province) {
-      orConditions.push({ province: params.province }, { municipality: params.province });
+      where.province = params.province;
     }
 
     if (params.search) {
@@ -38,10 +38,10 @@ export class ListingsService {
       where.OR = orConditions;
     }
 
-    if (params.minPrice !== undefined || params.maxPrice !== undefined) {
+    if (params.min_price !== undefined || params.max_price !== undefined) {
       where.price = {};
-      if (params.minPrice !== undefined) where.price.gte = Number(params.minPrice);
-      if (params.maxPrice !== undefined) where.price.lte = Number(params.maxPrice);
+      if (params.min_price !== undefined) where.price.gte = Number(params.min_price);
+      if (params.max_price !== undefined) where.price.lte = Number(params.max_price);
     }
 
     const orderBy: any = (() => {

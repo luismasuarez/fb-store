@@ -53,7 +53,7 @@ export function ListingFilters({ values, onChange }: Props) {
     <div className="flex flex-wrap gap-3 items-end">
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Tipo</label>
-        <Select value={values.listingType} onValueChange={(v) => set("listingType", v)}>
+        <Select value={values.listingType} onValueChange={(v) => set("listingType", v === " " ? "" : v)}>
           <SelectTrigger className="w-28">
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
@@ -68,7 +68,7 @@ export function ListingFilters({ values, onChange }: Props) {
 
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Propiedad</label>
-        <Select value={values.propertyType} onValueChange={(v) => set("propertyType", v)}>
+        <Select value={values.propertyType} onValueChange={(v) => set("propertyType", v === " " ? "" : v)}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Todas" />
           </SelectTrigger>
@@ -85,7 +85,7 @@ export function ListingFilters({ values, onChange }: Props) {
 
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Provincia</label>
-        <Select value={values.province} onValueChange={(v) => set("province", v)}>
+        <Select value={values.province} onValueChange={(v) => set("province", v === " " ? "" : v)}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder="Todas" />
           </SelectTrigger>
@@ -147,7 +147,7 @@ export function ListingFilters({ values, onChange }: Props) {
 
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">Orden</label>
-        <Select value={values.sort} onValueChange={(v) => set("sort", v)}>
+        <Select value={values.sort} onValueChange={(v) => set("sort", v === " " ? "" : v)}>
           <SelectTrigger className="w-28">
             <SelectValue placeholder="Nuevos" />
           </SelectTrigger>
