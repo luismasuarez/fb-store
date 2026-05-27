@@ -1,77 +1,63 @@
 # FB Store
 
-Automatización para extraer publicaciones de grupos de Facebook, procesarlas con IA y consultarlas desde una API.
+Extrae publicaciones de grupos de Facebook, las procesa con IA y las sirve vía API REST con un panel admin. Todo en un monorepo.
 
 ## Stack
 
 | Componente | Tecnología |
 |---|---|
-| API | NestJS 11 + Fastify 5 |
-| ORM | Prisma 7 (PostgreSQL) |
-| Job Queue | BullMQ + Redis |
-| Scraper | Playwright 1.52 |
-| AI | Multi-provider (OpenAI, Anthropic, OpenRouter) |
-| Admin (Fase 0) | Prisma Studio |
-| Admin (post-MVP) | Vite + React + shadcn/ui |
-| Cliente móvil | Expo SDK 56 (postergado) |
+| API | NestJS 11 + Fastify 5 + Prisma 7 |
+| Admin | Vite + React 19 + shadcn/ui |
+| Scraper | Playwright 1.60 (Chromium) |
+| AI | OpenRouter (gpt-4o-mini) |
+| DB | PostgreSQL 18 |
 | Infra | Docker Compose |
 | Monorepo | pnpm + Turborepo |
 
-## Requisitos
-
-- Node.js >= 22.13 + pnpm 10
-- Docker + Docker Compose
-
-## Setup rápido
+## Docker (todo en uno)
 
 ```bash
-cp .env.example .env        # editar credenciales
-pnpm install                # instalar dependencias
-pnpm db:migrate             # aplicar migraciones
-npm run dev                 # local: http://localhost:3000/api/health
+pnpm docker:full
 ```
 
-## Docker (stack completo)
+Abre `http://localhost:3000` — Admin SPA + API en el mismo puerto.
+
+Para empaquetar el profile de Facebook logueado y subirlo a un deploy:
 
 ```bash
-npm run docker:up           # levanta postgres + redis + api
-npm run docker:down         # detiene todo
-npm run docker:logs         # logs en tiempo real
+pnpm docker:profile:pack    # genera profiles/cuenta-1.tar.gz
 ```
 
-La API responde en `http://localhost:3000/api/health`.
-
-## Scripts útiles
+## Scripts principales
 
 | Comando | Descripción |
 |---|---|
-| `pnpm dev` | API en modo desarrollo (hot-reload) |
-| `npm run docker:up` | Build + levanta stack completo |
-| `pnpm db:generate` | Regenera cliente Prisma |
-| `pnpm db:migrate` | Crea migración + aplica |
-| `pnpm db:studio` | Prisma Studio (admin liviano) |
-| `pnpm db:push` | Push schema a DB sin migración |
+| `pnpm docker:full` | Build + levanta stack completo (API + Admin + Scraper + AI + Postgres) |
+| `pnpm dev` | API en desarrollo |
+| `pnpm dev:admin` | Admin en desarrollo (Vite con proxy a API) |
+| `pnpm scrape` | Ejecuta scraper (requiere profile logueado) |
+| `pnpm ai:process` | Procesa raw_posts con IA |
+| `pnpm db:studio` | Prisma Studio |
+
+## Endpoints
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET | `/api/listings` | Listings con filtros (province, property_type, price, etc.) |
+| GET | `/api/listings/:id` | Detalle de listing |
+| GET | `/api/raw-posts` | Posts crudos de Facebook |
+| POST | `/api/scrape` | Ejecuta scraper |
+| POST | `/api/ai-process` | Ejecuta AI processor |
 
 ## Estructura
 
 ```
-fb-store/
-├── apps/
-│   ├── api/          # NestJS + Fastify + Swagger
-│   ├── admin/        # Vite + React (post-MVP)
-│   └── expo/         # App móvil (postergado)
-├── packages/
-│   ├── shared/       # Prisma schema, client, Zod schemas
-│   ├── scraper/      # Playwright worker (Fase 1)
-│   └── ai-processor/ # AI extraction worker (Fase 2)
-├── docker/           # Dockerfiles multi-stage
-└── docker-compose.yml
+apps/
+├── api/              # NestJS + Fastify
+├── admin/            # Vite + React (SPA)
+packages/
+├── shared/           # Prisma schema, Zod schemas, tipos
+├── scraper/          # Playwright
+└── ai-processor/     # OpenRouter
 ```
-
-## Roadmap
-
-- **Fase 0** — Scraper funcional + Prisma Studio para visualización
-- **Fase 1** — API con endpoints de listings + Swagger
-- **Fase 2** — AI Processor + modo headless programado
-- **Fase 3** — Admin panel web
-- **Fase 4** — App Expo + push notifications
