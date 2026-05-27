@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM node:22-slim AS base
 LABEL org.opencontainers.image.source="https://github.com/user/fb-store"
-LABEL org.opencontainers.image.description="FB Store All-in-One — API + Admin"
+LABEL org.opencontainers.image.description="FB Store All-in-One — API + Admin + Scraper + AI Processor"
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME/bin:$PATH"
@@ -14,6 +14,8 @@ COPY tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY packages/shared/package.json packages/shared/
+COPY packages/scraper/package.json packages/scraper/
+COPY packages/ai-processor/package.json packages/ai-processor/
 
 FROM base AS deps
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -31,24 +33,52 @@ FROM build-shared AS build-admin
 COPY apps/admin/ apps/admin/
 RUN pnpm --filter @fb-store/admin build
 
-FROM base AS prod
+FROM build-shared AS build-scraper
+COPY packages/scraper/ packages/scraper/
+RUN pnpm --filter @fb-store/scraper build
+
+FROM build-shared AS build-ai
+COPY packages/ai-processor/ packages/ai-processor/
+RUN pnpm --filter @fb-store/ai-processor build
+
+FROM build-scraper AS install-playwright
+RUN npx playwright install --with-deps chromium
+
+FROM node:22-slim AS prod
 RUN groupadd -r fbstore && useradd --no-log-init -r -g fbstore fbstore
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+    libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+    libpango-1.0-0 libcairo2 libasound2 libatspi2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/apps/api/node_modules /app/apps/api/node_modules
 COPY --from=deps /app/apps/admin/node_modules /app/apps/admin/node_modules
 COPY --from=deps /app/packages/shared/node_modules /app/packages/shared/node_modules
+COPY --from=deps /app/packages/scraper/node_modules /app/packages/scraper/node_modules
+COPY --from=deps /app/packages/ai-processor/node_modules /app/packages/ai-processor/node_modules
 
 COPY --from=build-api /app/apps/api/dist /app/apps/api/dist
 COPY --from=build-admin /app/apps/admin/dist /app/apps/admin/dist
 COPY --from=build-shared /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=build-shared /app/packages/shared/src/generated /app/packages/shared/src/generated
+COPY --from=build-scraper /app/packages/scraper/dist /app/packages/scraper/dist
+COPY --from=build-ai /app/packages/ai-processor/dist /app/packages/ai-processor/dist
+
+COPY --from=install-playwright /home/fbstore/.cache/ms-playwright /home/fbstore/.cache/ms-playwright
 
 COPY apps/api/package.json apps/api/
 COPY apps/admin/package.json apps/admin/
 COPY packages/shared/package.json packages/shared/
+COPY packages/scraper/package.json packages/scraper/
+COPY packages/ai-processor/package.json packages/ai-processor/
 
 ENV NODE_ENV=production
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/fbstore/.cache/ms-playwright
+ENV HOME=/home/fbstore
+
 USER fbstore
 
 EXPOSE 3000

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .turbo/
 profiles/
+!profiles/*.tar.gz
 *.log
 .env
 .env.local

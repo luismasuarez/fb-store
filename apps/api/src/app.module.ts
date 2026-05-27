@@ -5,6 +5,8 @@ import { AppController } from "./app.controller";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RawPostsModule } from "./raw-posts/raw-posts.module";
 import { ListingsModule } from "./listings/listings.module";
+import { ScraperModule } from "./scraper/scraper.module";
+import { AiProcessorModule } from "./ai-processor/ai-processor.module";
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { ListingsModule } from "./listings/listings.module";
     PrismaModule,
     RawPostsModule,
     ListingsModule,
+    ScraperModule,
+    AiProcessorModule,
   ],
   controllers: [AppController],
 })

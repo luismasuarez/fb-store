@@ -5,11 +5,14 @@ services:
       dockerfile: docker/Dockerfile.full
     ports:
       - "3000:3000"
+    volumes:
+      - ./profiles:/app/profiles
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
+      - PROFILE_DIR=/app/profiles/cuenta-1
     depends_on:
       postgres:
         condition: service_healthy

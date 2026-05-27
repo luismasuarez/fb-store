@@ -17,7 +17,9 @@
     "docker:full": "docker compose --env-file .env up --build -d full",
     "docker:up": "docker compose --env-file .env up --build -d",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "docker:profile:pack": "tar -czf profiles/cuenta-1.tar.gz -C profiles/cuenta-1 .",
+    "docker:profile:info": "ls -lh profiles/cuenta-1.tar.gz"
   },
   "devDependencies": {
     "tsx": "^4.22.3",
