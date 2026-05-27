@@ -1,4 +1,22 @@
 services:
+  full:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.full
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fb-store-net
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
