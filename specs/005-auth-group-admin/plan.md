@@ -2,7 +2,7 @@
 
 **Branch**: `005-auth-group-admin` | **Date**: 2026-07-18 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/004-auth-group-admin/spec.md`
+**Input**: Feature specification from `/specs/005-auth-group-admin/spec.md`
 
 ## Summary
 
@@ -49,7 +49,7 @@ Implement authentication with JWT dual (access + refresh tokens with rotation), 
 ### Documentation (this feature)
 
 ```text
-specs/004-auth-group-admin/
+specs/005-auth-group-admin/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output

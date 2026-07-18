@@ -8,6 +8,12 @@
 
 **Input**: User description: "Spec 002 — Autenticación + Administración de Grupos. Login seguro con JWT dual + refresh rotation, CRUD de grupos de Facebook desde API y web, dashboard con controles funcionales, y protección de endpoints sensibles."
 
+## Clarifications
+
+### Session 2026-07-18
+
+- Q: Group URL — required or optional? → A: Optional in DB schema, required in API validation. Keep `url String?` in Prisma, enforce non-null via Zod DTO and service layer.
+
 ## User Scenarios & Testing
 
 ### User Story 1 — Inicio de Sesión Seguro con JWT Dual (Priority: P1)
@@ -112,7 +118,7 @@ Como administrador del sistema, quiero que los endpoints que modifican datos o c
 - **FR-013**: System MUST provide `PUT /api/groups/:id` (authenticated) to update an existing group's configuration
 - **FR-014**: System MUST provide `DELETE /api/groups/:id` (authenticated) to remove a group
 - **FR-015**: System MUST return HTTP 404 when requesting, updating, or deleting a non-existent group
-- **FR-016**: System MUST validate all group input: name required, URL required and valid format, maxPosts >= 1, isActive defaults to true
+- **FR-016**: System MUST validate all group input at the API layer: name required, URL required (via Zod DTO, DB column remains nullable), valid URL format, maxPosts >= 1, isActive defaults to true
 - **FR-017**: System MUST have a seed mechanism to create the initial admin user (via seed command at startup or environment variable), with only one admin user per system instance
 - **FR-018**: System MUST log all authentication attempts (success and failure) with timestamp for audit
 - **FR-019**: System MUST store refresh tokens as SHA-256 hashes in the `auth_sessions` table, never as plain text
@@ -121,7 +127,7 @@ Como administrador del sistema, quiero que los endpoints que modifican datos o c
 ### Key Entities
 
 - **AuthSession**: Represents an active session. Contains userId, tokenHash (SHA-256 of refresh token), expiresAt, revokedAt (nullable — set on logout or token rotation), and createdAt. A session is valid if not expired and not revoked.
-- **Group**: Represents a Facebook group to scrape. Contains name, URL (unique), maxPosts limit, isActive flag (enables/disables scraping without deletion), lastScraped timestamp, and timestamps (createdAt, updatedAt).
+- **Group**: Represents a Facebook group to scrape. Contains name, URL (unique), maxPosts limit, isActive flag (enables/disables scraping without deletion), lastScraped timestamp, and timestamps (createdAt).
 
 ## Success Criteria
 

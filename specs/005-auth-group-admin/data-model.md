@@ -120,7 +120,7 @@ A session is valid iff: `revokedAt IS NULL AND expiresAt > NOW()`.
 | Login | email | Required, valid email format, max 255 chars | validation |
 | Login | password | Required, min 8 chars | validation |
 | CreateGroup | name | Required, 1-255 chars | validation |
-| CreateGroup | url | Required (spec says optional? check — validated as required per FR-016), valid URL format | validation |
+| CreateGroup | url | Required at API layer (Zod DTO), DB column nullable — validated as required per FR-016, valid URL format | validation |
 | CreateGroup | maxPosts | >= 1, integer, default 30 | validation |
 | CreateGroup | isActive | boolean, default true | validation |
 | UpdateGroup | name | Optional, 1-255 chars if provided | validation |
