@@ -10,6 +10,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import fastifyStatic from "@fastify/static";
 import path from "path";
 import { AppModule } from "./app.module";
+import { AppConfigService } from "./infrastructure/config/app-config.service";
 
 config({ path: resolve(__dirname, "../../../.env") });
 
@@ -18,6 +19,9 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter(),
   );
+
+  const appConfig = app.get(AppConfigService);
+  appConfig.validateRequired();
 
   const adminDist = path.join(__dirname, "../../../apps/admin/dist");
   const indexHtml = fs.readFileSync(

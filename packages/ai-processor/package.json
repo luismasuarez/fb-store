@@ -5,7 +5,8 @@
   "main": "./src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fb-store/shared": "workspace:*",
@@ -14,6 +15,7 @@
     "ioredis": "^5.0.0"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10"
   }
 }

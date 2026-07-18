@@ -164,4 +164,13 @@ curl http://localhost:3000/api/listings?page=-1 -v
 
 # 5. Schedule endpoint works
 curl http://localhost:3000/api/schedule -H "x-api-key: your-api-key"
+
+# 6. Verify Docker worker auto-restart
+docker compose up -d scraper ai-processor
+# Kill the scraper worker container
+docker compose kill scraper
+# Wait a few seconds and verify it restarts automatically
+sleep 5
+docker compose ps scraper
+# Expected: scraper should be running (restart: unless-stopped)
 ```

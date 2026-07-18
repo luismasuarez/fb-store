@@ -1,8 +1,8 @@
 <!-- SYNC IMPACT REPORT
-Version change: (template) → 1.0.0
-Modified principles: All new (first real fill)
-Added sections: Core Principles (5), Stack & Technology, Development Workflow, Governance
-Removed sections: N/A
+Version change: 1.0.0 → 1.1.0
+Modified principles: Item 4 in Development Workflow — changed from "Testing is encouraged but not mandatory" to "TDD Mandatory (NON-NEGOTIABLE)"
+Added sections: None
+Removed sections: None
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ (already generic, no changes needed)
   - .specify/templates/spec-template.md ✅ (already generic, no changes needed)
@@ -90,10 +90,11 @@ database schema and Prisma client generation.
    AI providers, DB schema, deployment).
 3. Before implementing, verify alignment with the active spec. Each spec builds
    on the previous one — respect the dependency chain.
-4. Testing is encouraged but not mandatory unless explicitly required by the
-   spec. When tests exist, they use Vitest and should follow the patterns from
-   the feature's `application/` layer (pure unit tests) or `TestingModule`
-   (integration with mocked repositories).
+4. **TDD Mandatory (NON-NEGOTIABLE)**. Tests MUST be written before implementation.
+   Red-Green-Refactor cycle strictly enforced. Run single test files during development:
+   `pnpm --filter <package> test <file>`. Full test suite runs after lint → typecheck → test
+   flow. Tests use Vitest and follow the patterns from the feature's `application/` layer
+   (pure unit tests) or `TestingModule` (integration with mocked repositories).
 5. Commits are manual (auto-commit is disabled in speckit config). Commit
    messages should be descriptive and reference the spec when applicable.
 
@@ -109,4 +110,4 @@ database schema and Prisma client generation.
   - `SPECS.md` — why each spec exists, what it includes, what it defers
   - `ARCHITECTURE-REFERENCE.md` — how the system is designed (reference)
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-07-18
+**Version**: 1.1.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-07-18
