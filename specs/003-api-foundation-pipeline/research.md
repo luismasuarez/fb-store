@@ -62,7 +62,7 @@ const worker = new Worker<ScrapeJobData>(
 | Category | HTTP Status | Trigger |
 |----------|-------------|---------|
 | `validation` | 400 | Zod validation errors, ParseUUIDPipe failures |
-| `authorization` | 401/403 | Missing/invalid JWT, insufficient permissions |
+| `authorization` | 401/403 | Missing/invalid API key, insufficient permissions |
 | `rate_limit` | 429 | Rate limit exceeded |
 | `business` | 409/422 | Business rule violations (duplicate, invalid state) |
 | `unknown` | 500 | Unexpected errors (never expose details) |
@@ -95,7 +95,29 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
 **RequestId strategy**: NestJS + Fastify generates a `request.id` by default. The interceptor reads/forwards this as `x-request-id` header and adds logging.
 
-## 3. Custom ZodValidationPipe vs nestjs-zod
+## 3. API Key Authentication
+
+**Decision**: Use a custom NestJS guard that validates `x-api-key` header against the configured `API_KEY` environment variable. Reject with 401 if missing or invalid.
+
+**Rationale**: Single-admin internal tool. API key via header is the simplest mechanism: no user management, no session state, easy to rotate via env var. JWT or OAuth would add unnecessary complexity for a system with one consumer.
+
+**Pattern**:
+```typescript
+@Injectable()
+export class ApiKeyGuard implements CanActivate {
+  constructor(private config: AppConfigService) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const key = request.headers['x-api-key'];
+    return key === this.config.getRequiredString('API_KEY');
+  }
+}
+```
+
+**Registration**: Apply globally via `{ provide: APP_GUARD, useClass: ApiKeyGuard }` in AppModule.
+
+## 4. Custom ZodValidationPipe vs nestjs-zod
 
 **Decision**: Build a custom `ZodValidationPipe` instead of using `nestjs-zod` or `@anatine/zod-nestjs`.
 
@@ -134,11 +156,11 @@ Registration via APP_PIPE:
 }
 ```
 
-## 4. AppConfigService — Env Validation at Startup
+## 5. AppConfigService — Env Validation at Startup
 
 **Decision**: Implement `AppConfigService` that wraps NestJS `ConfigService` with typed getters and startup validation. Call `validateRequired()` in `main.ts` before `listen()`.
 
-**Critical env vars** to validate: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` (future), `OPENROUTER_API_KEY`
+**Critical env vars** to validate: `DATABASE_URL`, `REDIS_URL`, `API_KEY`, `OPENROUTER_API_KEY`
 
 **Pattern**:
 ```typescript
@@ -168,7 +190,7 @@ export class AppConfigService {
 }
 ```
 
-## 5. Repository Pattern for Prisma
+## 6. Repository Pattern for Prisma
 
 **Decision**: Create repository classes that wrap Prisma operations. Each feature gets its own repository. Services inject repositories, never PrismaService directly.
 
@@ -198,7 +220,7 @@ export class ListingRepository {
 }
 ```
 
-## 6. Scheduler with BullMQ Repeatable Jobs
+## 7. Scheduler with BullMQ Repeatable Jobs
 
 **Decision**: Use BullMQ's `QueueScheduler` (deprecated but still functional — `queue.add()` with `repeat` option) or `queue.upsertJobScheduler()`. The scheduler module registers a repeatable job on the `scrape` queue at API startup.
 
@@ -227,7 +249,7 @@ export class SchedulerService implements OnModuleInit {
 }
 ```
 
-## 7. Standardized API Response Envelope
+## 8. Standardized API Response Envelope
 
 **Decision**: All paginated responses use `{ data: T[], pagination: { page, limit, total, totalPages } }`. Single-resource responses use `{ data: T }`. Error responses use `{ error: { code, message, requestId, timestamp } }`. This is a breaking change for existing clients (currently return raw arrays/objects), but all consumers are internal (admin SPA).
 
@@ -246,7 +268,7 @@ export interface PaginationMeta {
 }
 ```
 
-## 8. Docker Compose Worker Configuration
+## 9. Docker Compose Worker Configuration
 
 **Decision**: The scraper and AI processor already exist as separate services in `docker-compose.yml` with their own Dockerfiles. The change is to update their `command` to run the BullMQ worker entry point instead of a one-shot CLI. Keep `restart: unless-stopped` — BullMQ will idle-connect to Redis and wait for jobs.
 
@@ -267,4 +289,5 @@ export interface PaginationMeta {
 | 5 | Repository pattern per feature | Constitution requirement, testability |
 | 6 | BullMQ upsertJobScheduler for scheduler | Supports CRUD operations on schedule config |
 | 7 | Response envelope with `{ data, pagination }` | Consistent API contract, aligns with architecture target |
-| 8 | Existing Docker services stay, only command changes | Minimal infra changes, workers already separated |
+| 8 | API Key via `x-api-key` header, NestJS guard | Simplest auth for single-admin internal tool |
+| 9 | Existing Docker services stay, only command changes | Minimal infra changes, workers already separated |

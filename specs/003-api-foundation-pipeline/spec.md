@@ -8,6 +8,14 @@
 
 **Input**: User description: "Spec 001 — Fundación API + Pipeline Automático. Convertir scraper y AI processor de CLI scripts a workers BullMQ asíncronos, agregar infraestructura base de API (error handling, request tracing, validación global, config service, Prisma module, queue module), scheduler automático, y Docker Compose para workers."
 
+## Clarifications
+
+### Session 2026-07-18
+
+- Q: What authentication mechanism should the API use? → A: API Key via `x-api-key` header, validated by a NestJS guard.
+- Q: What retry strategy for failed AI processor jobs? → A: Exponential backoff (2^n minutes), 3 retries max, then dead letter queue.
+- Q: What is explicitly out of scope? → A: Web UI/dashboard, multi-user/roles, email/SMS notifications, Kubernetes/cloud orchestration, user registration, data import/export beyond API envelope.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Scrape y Procesamiento Automático (Priority: P1)
@@ -68,7 +76,7 @@ Como desarrollador del sistema, quiero que todas las respuestas de la API tengan
 ### Edge Cases
 
 - ¿Qué pasa cuando el scraper encuentra 0 posts nuevos? El worker debe completar exitosamente sin encolar ai-process (no hay nada que procesar)
-- ¿Qué pasa cuando el AI processor falla (timeout, rate limit, error del provider)? El raw_post debe quedar marcado como pendiente, no como procesado, para reintentar en el próximo ciclo
+- ¿Qué pasa cuando el AI processor falla (timeout, rate limit, error del provider)? Retry with exponential backoff (2^n minutes), max 3 retries, then move to dead letter queue. Raw posts remain marked as pending, not processed
 - ¿Qué pasa cuando Redis no está disponible? La API debe fallar al iniciar con un mensaje claro
 - ¿Qué pasa cuando se actualiza el schedule mientras un scrape está en ejecución? El cambio debe aplicarse al siguiente ciclo, no interrumpir el actual
 - ¿Qué pasa con datos existentes? Los listings y raw-posts actuales deben seguir funcionando con el nuevo formato de respuesta envelope
@@ -97,6 +105,7 @@ Como desarrollador del sistema, quiero que todas las respuestas de la API tengan
 - **FR-018**: System MUST run scraper and AI processor as long-running worker services with automatic restart on failure
 - **FR-019**: System MUST save ScrapeLog entries with metrics (posts found, new, errors, duration) after each group scrape
 - **FR-020**: System MUST NOT expose stack traces in production error responses
+- **FR-021**: System MUST require a valid `x-api-key` header on all API requests, validated by a NestJS guard, rejecting requests without a valid key with HTTP 401. The `GET /api/health` endpoint is exempt from this requirement to allow load-balancer health probes
 
 ### Key Entities
 
@@ -119,6 +128,15 @@ Como desarrollador del sistema, quiero que todas las respuestas de la API tengan
 - **SC-006**: Paginated list endpoints return envelope format `{ data, pagination }` - verifiable by checking any list response structure
 - **SC-007**: Scraper and AI processor workers restart automatically if they crash, verifiable by killing a worker process and confirming it comes back
 
+## Out of Scope
+
+- Web UI or dashboard — this spec covers API and workers only
+- Multi-user support or role-based access — single admin only
+- Email or SMS notifications
+- Kubernetes or cloud-specific orchestration — Docker Compose only
+- User registration or management
+- Data import/export APIs beyond the standard envelope response format
+
 ## Assumptions
 
 - Redis is available for BullMQ job queue operations (required dependency)
@@ -130,3 +148,4 @@ Como desarrollador del sistema, quiero que todas las respuestas de la API tengan
 - Network connectivity to Facebook and OpenRouter is available
 - The default 4-hour interval and 8:00-22:00 window are reasonable starting defaults that users can customize
 - Docker Compose is the deployment method (no Kubernetes or cloud-specific orchestration)
+- API key is configured via a single `API_KEY` environment variable, shared across all admin consumers

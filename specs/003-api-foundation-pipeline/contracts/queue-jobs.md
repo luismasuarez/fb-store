@@ -66,11 +66,14 @@ interface AiProcessJobData {
 **Job Options**:
 ```typescript
 {
-  attempts: 2,
-  backoff: { type: 'fixed', delay: 30000 },  // 30s retry for rate limits
+  attempts: 3,
+  backoff: { type: 'exponential', delay: 60000 },  // 1min, 2min, 4min
   timeout: 120000,  // 2 min timeout (AI calls can be slow)
+  removeOnFail: false,  // Keep in queue for DLQ inspection
 }
 ```
+
+**On 3rd failure**: Job moves to dead letter queue (BullMQ `failed` event handler moves it). Workers log the error and leave raw posts with `processed=false` for future retry cycles.
 
 **Expected Return Value**:
 ```typescript

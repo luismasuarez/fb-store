@@ -50,6 +50,7 @@ All endpoints are prefixed with `/api`. Production: `http://localhost:3000/api`.
 | Header | Description | Required |
 |--------|-------------|----------|
 | `x-request-id` | Returned on all responses | Auto-generated |
+| `x-api-key` | API authentication key | Required on all requests |
 
 ---
 
@@ -57,7 +58,7 @@ All endpoints are prefixed with `/api`. Production: `http://localhost:3000/api`.
 
 ### GET /api/listings
 
-List listings with filters. No auth required.
+List listings with filters.
 
 **Query Parameters**:
 
@@ -81,7 +82,7 @@ List listings with filters. No auth required.
 
 **Response**: `{ data: Listing[], pagination }`
 
-**Status Codes**: 200
+**Status Codes**: 200, 401 (missing/invalid API key)
 
 ---
 
@@ -93,7 +94,7 @@ Get single listing detail.
 
 **Response**: `{ data: Listing }`
 
-**Status Codes**: 200, 404
+**Status Codes**: 200, 401 (missing/invalid API key), 404
 
 ---
 
@@ -116,7 +117,7 @@ Trigger a scrape job. Returns immediately with jobId.
 }
 ```
 
-**Status Codes**: 202 (accepted), 400 (validation error)
+**Status Codes**: 202 (accepted), 400 (validation error), 401 (missing/invalid API key)
 
 ---
 
@@ -143,7 +144,7 @@ Check status of a scrape job.
 }
 ```
 
-**Status Codes**: 200
+**Status Codes**: 200, 401 (missing/invalid API key)
 
 **Status values**: `waiting` | `active` | `completed` | `failed`
 
@@ -167,7 +168,7 @@ Trigger AI processing. Returns immediately with jobId.
 }
 ```
 
-**Status Codes**: 202 (accepted), 400 (validation error)
+**Status Codes**: 202 (accepted), 400 (validation error), 401 (missing/invalid API key)
 
 ---
 
@@ -187,7 +188,7 @@ Get current scheduler configuration.
 }
 ```
 
-**Status Codes**: 200
+**Status Codes**: 200, 401 (missing/invalid API key)
 
 ---
 
@@ -207,7 +208,7 @@ Update scheduler configuration.
 
 **Response**: Updated schedule config + `{ "data": { ... } }`
 
-**Status Codes**: 200, 400 (validation)
+**Status Codes**: 200, 400 (validation), 401 (missing/invalid API key)
 
 ---
 
@@ -228,7 +229,7 @@ List raw posts with filters.
 
 **Response**: `{ data: RawPost[], pagination }`
 
-**Status Codes**: 200
+**Status Codes**: 200, 401 (missing/invalid API key)
 
 ---
 
@@ -247,4 +248,4 @@ Health check endpoint.
 { "status": "ok" }
 ```
 
-**Status Codes**: 200
+**Status Codes**: 200, 401 (missing/invalid API key) — or may bypass auth guard for healthcheck compatibility

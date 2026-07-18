@@ -45,7 +45,7 @@
 **Lifecycle**:
 1. `POST /api/scrape` → enqueues job with `{ groupId?, maxPosts? }`
 2. Worker picks up → processes group → saves raw_posts → saves ScrapeLog
-3. If new posts found → enqueues `ai-process` job with `{ rawPostIds[]? }`
+3. If new posts found → enqueues `ai-process` job with `{ rawPostIds[]? }` with exponential backoff retry (3 attempts)
 4. Status trackable via `GET /api/scrape/status/:jobId`
 
 ### AiProcessJobData (BullMQ Job Data — No DB table)
@@ -101,7 +101,7 @@
 | aiProvider | string? | AI provider used |
 | scrapedAt | timestamp | When the post was scraped |
 
-**State transitions**: `processed=false` → AI processes → Two outcomes: success (processed=true, listingId set) or failure (processed stays false)
+**State transitions**: `processed=false` → AI processes → Three outcomes: success (processed=true, listingId set), transient failure (processed stays false, retried with exponential backoff up to 3 attempts), or permanent failure (moved to dead letter queue, raw_post remains pending for manual or next-cycle recovery)
 
 ### Listing (Existing DB table — No schema changes in this spec)
 

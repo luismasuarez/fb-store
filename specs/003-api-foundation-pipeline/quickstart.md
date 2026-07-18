@@ -50,20 +50,21 @@ Runs `turbo build` — builds all packages and apps.
 
 ```bash
 # Trigger a scrape (returns immediately with jobId)
-curl -X POST http://localhost:3000/api/scrape
+curl -X POST http://localhost:3000/api/scrape -H "x-api-key: your-api-key"
 
 # Check job status
-curl http://localhost:3000/api/scrape/status/<jobId>
+curl http://localhost:3000/api/scrape/status/<jobId> -H "x-api-key: your-api-key"
 
 # Trigger AI processing manually (optional)
-curl -X POST http://localhost:3000/api/ai-process
+curl -X POST http://localhost:3000/api/ai-process -H "x-api-key: your-api-key"
 
 # View current schedule config
-curl http://localhost:3000/api/schedule
+curl http://localhost:3000/api/schedule -H "x-api-key: your-api-key"
 
 # Update schedule config
 curl -X PUT http://localhost:3000/api/schedule \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key" \
   -d '{"intervalMinutes": 120, "hourStart": 8, "hourEnd": 22, "enabled": true}'
 ```
 
@@ -156,11 +157,11 @@ pnpm dev
 open http://localhost:3000/docs
 
 # 3. POST /api/scrape returns 202 with jobId
-curl -X POST http://localhost:3000/api/scrape -v
+curl -X POST http://localhost:3000/api/scrape -H "x-api-key: your-api-key" -v
 
-# 4. Error responses include requestId
+# 4. Error responses include requestId (no API key → 401)
 curl http://localhost:3000/api/listings?page=-1 -v
 
 # 5. Schedule endpoint works
-curl http://localhost:3000/api/schedule
+curl http://localhost:3000/api/schedule -H "x-api-key: your-api-key"
 ```

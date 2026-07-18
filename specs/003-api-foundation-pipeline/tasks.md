@@ -51,7 +51,8 @@ description: "Task list for Spec 001 — Fundación API + Pipeline Automático"
 - [ ] T012 Create ZodValidationPipe in apps/api/src/core/pipes/zod-validation.pipe.ts — PipeTransform that calls schema.safeParse() with whitelist + transform behavior, throws BadRequestException with formatted errors on failure
 - [ ] T013 Create global exception filter in apps/api/src/core/filters/http-exception.filter.ts — @Catch() with HttpAdapterHost, categorizes exceptions into validation/authorization/rate_limit/business/unknown, returns { error: { code, message, requestId, timestamp } }, never exposes stack traces
 - [ ] T014 Create RequestId interceptor in apps/api/src/core/interceptors/request-id.interceptor.ts — NestInterceptor that ensures x-request-id header on every response, logs method/URL/controller/handler/duration/status, accumulates rejection metrics
-- [ ] T015 Update AppModule in apps/api/src/app.module.ts — remove old imports (PrismaModule from old path, ScraperModule, AiProcessorModule), import new infrastructure modules (AppConfigModule, PrismaModule from infrastructure, QueueModule), register ZodValidationPipe via APP_PIPE, register HttpExceptionFilter globally, register RequestIdInterceptor globally
+- [ ] T014b Create ApiKeyGuard in apps/api/src/core/guards/api-key.guard.ts — CanActivate that validates x-api-key header against AppConfigService API_KEY, returns 401 on mismatch. Add a `@SkipAuth()` decorator (setMetadata) and `Reflector` check in the guard so routes like health can be excluded
+- [ ] T015 Update AppModule in apps/api/src/app.module.ts — remove old imports (PrismaModule from old path, ScraperModule, AiProcessorModule), import new infrastructure modules (AppConfigModule, PrismaModule from infrastructure, QueueModule), register ZodValidationPipe via APP_PIPE, register HttpExceptionFilter globally, register RequestIdInterceptor globally, register ApiKeyGuard via APP_GUARD with health-endpoint exclusion (apply `@SkipAuth()` to health controller)
 - [ ] T016 Update main.ts in apps/api/src/main.ts — call AppConfigService.validateRequired() before listen(), fail fast with clear message if DATABASE_URL, REDIS_URL, or other critical vars are missing
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
@@ -90,7 +91,8 @@ description: "Task list for Spec 001 — Fundación API + Pipeline Automático"
 
 ### Docker Compose
 
-- [ ] T029 [US1] Update docker-compose.yml — scraper service command to `["node", "packages/scraper/dist/worker.js"]`, ai-processor service command to `["node", "packages/ai-processor/dist/worker.js"]`, add healthchecks for both workers (Redis ping), ensure restart: unless-stopped
+- [ ] T029 [US1] Update docker-compose.yml — scraper service command to `["node", "packages/scraper/dist/worker.js"]`, ai-processor service command to `["node", "packages/ai-processor/dist/worker.js"]`, add healthchecks for both workers (Redis ping or worker health endpoint), ensure restart: unless-stopped
+- [ ] T029b [US1] Verify auto-restart: kill scraper worker container, confirm Docker restarts it automatically — document in quickstart.md validation steps
 
 **Checkpoint**: Async pipeline working end-to-end. POST /api/scrape → background scraping → auto AI processing → listings created. MVP ready.
 
