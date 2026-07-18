@@ -12,11 +12,18 @@ interface GroupConfig {
   maxPosts: number;
 }
 
-async function scrapeGroup(
+export interface ScrapeMetrics {
+  groupId: string;
+  postsFound: number;
+  postsNew: number;
+  durationMs: number;
+}
+
+export async function scrapeGroup(
   profileDir: string,
   group: GroupConfig,
   maxScrolls: number,
-  scrollDelayMs: number
+  scrollDelayMs: number,
 ): Promise<RawPost[]> {
   const context = await createContext(profileDir);
   const page = await context.newPage();
@@ -28,9 +35,9 @@ async function scrapeGroup(
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(3000);
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < maxScrolls; i++) {
       await page.evaluate(() => window.scrollBy(0, 800));
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(scrollDelayMs);
     }
 
     await page.evaluate(() => {
@@ -46,7 +53,7 @@ async function scrapeGroup(
     const extractFn = EXTRACTOR_SCRIPT;
     const raw = (await page.evaluate(extractFn)) as any;
     const posts: RawPost[] = Array.isArray(raw) ? raw : [];
-    const valid = posts.filter(p => p.text.length > 20);
+    const valid = posts.filter((p) => p.text.length > 20);
     console.log(`📦 ${valid.length} posts extraídos`);
 
     for (const post of valid) {
@@ -64,7 +71,11 @@ async function scrapeGroup(
               });
             }, imgUrl);
             const [header, data] = dataUrl.split(",");
-            imgs.push({ url: imgUrl, mime: header.match(/data:(.*?);/)?.[1] || "image/jpeg", data });
+            imgs.push({
+              url: imgUrl,
+              mime: header.match(/data:(.*?);/)?.[1] || "image/jpeg",
+              data,
+            });
           } catch {
             imgs.push({ url: imgUrl, mime: "image/jpeg", data: "" });
           }
@@ -84,7 +95,10 @@ async function scrapeGroup(
   }
 }
 
-async function savePosts(posts: RawPost[], groupId: string) {
+export async function savePosts(
+  posts: RawPost[],
+  groupId: string,
+): Promise<number> {
   const prisma = getPrismaClient();
   let saved = 0;
   for (const post of posts) {
@@ -108,7 +122,23 @@ async function savePosts(posts: RawPost[], groupId: string) {
   return saved;
 }
 
-async function main() {
+export async function saveScrapeLog(metrics: ScrapeMetrics): Promise<void> {
+  const prisma = getPrismaClient();
+  await prisma.scrapeLog.create({
+    data: {
+      groupId: metrics.groupId,
+      accountIndex: 0,
+      postsFound: metrics.postsFound,
+      postsNew: metrics.postsNew,
+      postsErrors: 0,
+      startedAt: new Date(Date.now() - metrics.durationMs),
+      finishedAt: new Date(),
+      durationMs: metrics.durationMs,
+    },
+  });
+}
+
+export async function main() {
   const profileDir = process.env.PROFILE_DIR ?? "./profiles/cuenta-1";
   const rawGroups = process.env.FB_GROUPS ?? "[]";
   const scrollDelay = Number(process.env.SCROLL_DELAY_MS) || 4000;
@@ -125,8 +155,15 @@ async function main() {
     console.log(`\n--- ${group.name} ---`);
     try {
       const scrolls = Math.ceil(group.maxPosts / 5);
+      const startTime = Date.now();
       const posts = await scrapeGroup(profileDir, group, scrolls, scrollDelay);
-      await savePosts(posts, group.id);
+      const postsNew = await savePosts(posts, group.id);
+      await saveScrapeLog({
+        groupId: group.id,
+        postsFound: posts.length,
+        postsNew,
+        durationMs: Date.now() - startTime,
+      });
     } catch (err: any) {
       console.error(`❌ Error: ${err.message}`);
     }
@@ -134,8 +171,3 @@ async function main() {
 
   console.log("\n🏁 Scraper finalizado");
 }
-
-main().catch((err) => {
-  console.error("❌ Fatal:", err);
-  process.exit(1);
-});
