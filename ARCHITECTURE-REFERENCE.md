@@ -1,8 +1,10 @@
-# FB Store — Especificación Técnica
+# FB Store — Referencia de Arquitectura
 
-> **MVP**: Automatización para extraer publicaciones de grupos de Facebook, procesarlas con IA, almacenarlas y consultarlas desde una app móvil Expo.
-
----
+> **Documento de referencia técnica**. Contiene el diseño original del proyecto: estrategia de scraping, arquitectura de AI providers, esquema de base de datos, endpoints y deployment. No es el plan activo.
+>
+> **Para el plan actual y especificaciones por fase, ver**: [`ROADMAP.md`](./ROADMAP.md) (visión + detalle técnico) y [`SPECS.md`](./SPECS.md) (desglose en 4 especificaciones implementables).
+>
+> Algunas secciones de este documento (App Expo, roadmap antiguo) se mantienen como registro histórico pero **no reflejan el rumbo actual del producto**.
 
 ## Índice
 
@@ -14,11 +16,8 @@
 - [Schedule Strategy](#schedule-strategy)
 - [Base de Datos](#base-de-datos)
 - [API REST](#api-rest)
-- [App Expo](#app-expo)
 - [Deployment](#deployment)
 - [Costos](#costos)
-- [Roadmap](#roadmap)
-- [Changelog](#changelog)
 
 ---
 
@@ -347,6 +346,7 @@ async function scrapeGroup(context: BrowserContext, group: GroupConfig): Promise
 ```
 
 **Tiempos para 10 grupos:**
+
 - Por grupo: ~2-3 minutos (6-10 scrolls con pausas)
 - Pausa entre grupos: ~12 minutos promedio
 - Ronda completa: ~2-2.5 horas
@@ -720,52 +720,7 @@ Los DTOs se validan con Zod 4 mediante un `ZodValidationPipe` que transforma el 
 
 ---
 
-## App Expo
-
-### Pantallas (Fase 0)
-
-| Pantalla | Descripción |
-|---|---|
-| **Home** | Grid de listings. Imagen + precio + título. Scroll infinito (FlashList). |
-| **Detalle** | Imágenes, descripción, datos de contacto, botón WhatsApp. |
-| **Categorías** | Filtro por categoría con conteo de resultados. |
-| **Búsqueda** | Input + filtros combinados (categoría, precio). |
-
-### Flujo de contacto
-
-```
-Usuario ve listing
-  → Tapa "Contactar por WhatsApp"
-  → Se abre WhatsApp con mensaje:
-    "Hola, vi tu *{producto}* en *FB Store*.
-     ¿Está disponible todavía?"
-  → El vendedor ve el nombre de la app → exposición orgánica
-```
-
-### Implementación del enlace WhatsApp
-
-```typescript
-// packages/shared/src/utils/whatsapp.ts
-
-export function getWhatsAppLink(phone: string, product: string, appName: string): string {
-  const message = `Hola, vi tu *${product}* en *${appName}*. ¿Está disponible todavía?`
-  const cleanPhone = phone.replace(/[^0-9]/g, '')
-  const fullPhone = cleanPhone.startsWith('58') ? cleanPhone : `58${cleanPhone}`
-  return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`
-}
-```
-
-### Stack de la app
-
-```
-@tanstack/react-query 5.100.14   ← Server state
-zustand 5.0.13                   ← Client state (filtros, favoritos)
-@shopify/flash-list 2.3.1       ← Scroll infinito eficiente
-expo-image ~56.0.9              ← Imágenes optimizadas
-expo-linking ~56.0.11           ← Deep links WhatsApp
-```
-
----
+<!-- App Expo section removed — mobile app is out of scope (see SPECS.md No-Goals) -->
 
 ## Deployment
 
@@ -852,186 +807,4 @@ rsync -av ./profiles/ usuario@server:/opt/fb-store/profiles/
 
 *OpenRouter tiene modelos gratuitos (rate-limited) que pueden reducir a $0.
 
----
-
-## Roadmap
-
-### Leyenda
-
-- 🔴 **Pendiente**
-- 🟡 **En progreso**
-- 🟢 **Completado**
-- ⚪ **Cancelado / Postergado**
-
----
-
-### Fase S: Scaffold (completado)
-
-> Objetivo: monorepo funcional + API health check + Docker full-stack.
-
-| # | Tarea | Estado |
-|---|---|---|
-| S.1 | pnpm + Turborepo scaffold (workspaces, turbo.json, tsconfig.base) | 🟢 |
-| S.2 | `shared`: Prisma v7 con adapter-pg + schema + prisma.config.ts + migración init | 🟢 |
-| S.3 | `shared`: types base + Zod schemas + utils (sanitize, whatsapp) esqueleto | 🟢 |
-| S.4 | `api`: NestJS 11 + Fastify 5 + PrismaModule + PrismaService + health endpoint | 🟢 |
-| S.5 | Docker multi-stage: 3 Dockerfiles (api, scraper, ai-processor) | 🟢 |
-| S.6 | `docker-compose.yml` con postgres + redis + red dedicada + volúmenes + healthchecks | 🟢 |
-| S.7 | Container hardening: HEALTHCHECK, non-root user, Playwright permissions, .dockerignore | 🟢 |
-| S.8 | Dev fix: tsconfig para decorators NestJS en `pnpm dev` | 🟢 |
-| S.9 | Module alignment: Prisma `moduleFormat=cjs`, todo CommonJS end-to-end | 🟢 |
-| S.10 | README + scripts npm (`docker:up`, `docker:down`, `docker:logs`) | 🟢 |
-
-Verificación: `docker compose up --build` → `curl localhost:3000/api/health` → `{"status":"ok"}`
-
----
-
-### Fase 0: "Primeros datos" (siguiente)
-
-> Objetivo: scraper funcional con login real, primeros posts en DB, visualización vía Prisma Studio o API.
-
-| # | Tarea | Dependencias | Estado |
-|---|---|---|---|
-| 0.1 | `scraper`: setup:login funcional (Playwright headed → perfil persistente) | Playwright 1.52 | 🔴 |
-| 0.2 | `scraper`: extractor DOM + sanitize + guardar en DB vía shared Prisma | `@fb-store/shared`, `sanitize-html` | 🔴 |
-| 0.3 | `scraper`: BullMQ worker con rate limiting progresivo | BullMQ, Redis | 🔴 |
-| 0.4 | `api`: endpoints GET /api/raw-posts + GET /api/listings | `@nestjs/swagger` | 🔴 |
-| 0.5 | `api`: seed script + ver datos reales en DB | — | 🔴 |
-| 0.6 | Prisma Studio como admin liviano | Prisma | 🟡 |
-| 0.7 | Scrape manual desde API (trigger + status) | BullMQ | 🔴 |
-
----
-
-### Fase 1: MVP Core (después de Fase 0)
-
-| # | Tarea | Estado |
-|---|---|---|
-| 1.1 | AIProvider interface + registry (OpenAI, Anthropic, OpenRouter) | 🔴 |
-| 1.2 | `ai-processor`: BullMQ worker con multi-provider | 🔴 |
-| 1.3 | `scraper`: múltiples grupos + rate limiting progresivo + dedup | 🔴 |
-| 1.4 | `scraper`: rotación de cuentas por env var | 🔴 |
-| 1.5 | `api`: categorías, búsqueda tsvector, paginación completa | 🔴 |
-| 1.6 | BullMQ scheduler con horario configurable | 🔴 |
-
----
-
-### Fase 2: App Móvil Completa
-
-| # | Tarea | Estado |
-|---|---|---|
-| 2.1 | Pantalla Detalle con galería de imágenes | 🔴 |
-| 2.2 | Pantalla Categorías con filtro | 🔴 |
-| 2.3 | Búsqueda + filtros combinados | 🔴 |
-| 2.4 | Integración WhatsApp | 🔴 |
-
----
-
-### Fase 3: Schedule Inteligente
-
-| # | Tarea | Prioridad |
-|---|---|---|
-| 3.1 | Schedule variable por día de la semana | Media |
-| 3.2 | Offset aleatorio + jitter | Media |
-| 3.3 | Skip probabilístico | Baja |
-
----
-
-### Fase 4: Admin Panel
-
-| # | Tarea | Prioridad |
-|---|---|---|
-| 4.1 | Vite + React + shadcn/ui + Tailwind 4 | Media |
-| 4.2 | Login / autenticación | Baja |
-| 4.3 | Tablero de listings con CRUD | Media |
-| 4.4 | Historial de scrapes | Baja |
-| 4.5 | Configuración de grupos desde UI | Baja |
-
----
-
-### Fase 5: Post-MVP
-
-| # | Tarea | Prioridad |
-|---|---|---|
-| 5.1 | Notificaciones push de nuevos listings | Baja |
-| 5.2 | Autenticación de usuarios en la app | Baja |
-| 5.3 | Publicación directa desde la app | Baja |
-| 5.4 | Favoritos / guardar listings | Baja |
-
----
-
----
-
-## Next Steps — Próxima sesión
-
-### Objetivo inmediato: Scraper funcional + primeros datos en DB
-
-1. **`setup:login` funcional**
-   - Probar `pnpm setup:login` → Playwright headed, login manual, perfil persistente en `profiles/cuenta-1/`
-   - Playwright install chromium + deps en máquina local
-
-2. **Extractor DOM**
-   - Implementar `packages/scraper/src/extractor.ts` con selectores reales de Facebook Groups
-   - Sanitizar texto con `sanitize-html` vía `packages/shared/src/utils/sanitize.ts`
-   - Extraer: fbPostId, texto, imágenes, autor, timestamp
-
-3. **Persistencia**
-   - Conectar scraper con `@fb-store/shared` Prisma client
-   - Guardar raw posts en tabla `raw_posts` + insertar placeholder en `listings`
-   - Probar migración + seed manual
-
-4. **BullMQ worker**
-   - Encolar job de scraping desde scheduler simple
-   - Worker procesa grupo, extrae posts, guarda, reporta en `scrape_logs`
-   - Rate limiting progresivo (3-5s entre scrolls, 10-15min entre grupos)
-
-5. **API endpoints básicos**
-   - `GET /api/raw-posts` — listar posts crudos
-   - `GET /api/listings` — listar listings con paginación + filtros
-   - Swagger/OpenAPI documentación automática
-
-6. **Verificación final**
-   - Scraper corre en contenedor Docker
-   - API expone datos scrapeados
-   - Prisma Studio muestra todo
-
----
-
-## Changelog
-
-### 2026-05-26
-
-| Tipo | Descripción |
-|---|---|
-| **Completado** | Fase S (Scaffold): monorepo funcional, API health check, Docker full-stack. |
-| **Actualización** | `docker-compose.yml` reescrito con postgres + redis + red dedicada + healthchecks encadenados. |
-| **Actualización** | `Dockerfile.api`: agregado `HEALTHCHECK`, `syntax=docker/dockerfile:1`. |
-| **Actualización** | `Dockerfile.scraper`: Playwright browsers heredan de `deps`, `--chown=fbstore`, env `PLAYWRIGHT_BROWSERS_PATH`. |
-| **Actualización** | `packages/ai-processor`: creado skeleton (package.json, tsconfig.json, src/index.ts). |
-| **Actualización** | Prisma `moduleFormat=cjs` (fix runtime ESM/CJS mismatch con Node 22). |
-| **Actualización** | `.env.example` actualizado con defaults para compose. |
-| **Actualización** | `.dockerignore` versionado en git (quitado de `.gitignore`). |
-| **Actualización** | Scripts npm: `docker:up`, `docker:down`, `docker:logs`. |
-| **Creación** | `README.md` con stack, quickstart, estructura y roadmap. |
-| **Actualización** | Roadmap: Fase S (Scaffold) agregada con items completados. Fase 0 redefinida con scraper real. |
-| **Actualización** | Sección "Next Steps" agregada con prioridades para próxima sesión. |
-
-### 2026-05-25
-
-| Tipo | Descripción |
-|---|---|
-| **Creación** | Versión inicial del spec. |
-| **Actualización** | Scraper: Python/facebook-scraper → Node.js + Playwright con `launchPersistentContext`. Sin Apify, proxies, VNC, Xvfb. Setup login local 1 vez. |
-| **Actualización** | AI Provider modular: interfaz `AIProvider` + registry. OpenAI, Anthropic, OpenRouter (incluye modelos gratis). |
-| **Actualización** | Monorepo: npm workspaces → pnpm workspaces con Turborepo. `apps/` + `packages/`. `shared` ahora incluye Prisma. |
-| **Actualización** | Stack finalizado: NestJS 11 + Fastify 5 + Prisma 7 + Zod 4 + TypeScript 6 + Expo SDK 56 (RN 0.85, React 19). Versiones concretas y lockeadas por paquete. |
-| **Actualización** | Admin: Postergado a Fase 4. En Fase 0 se usa Prisma Studio. |
-| **Actualización** | Schedule Strategy: sección agregada como pendiente (Fase 3). |
-| **Actualización** | Roadmap: Fase 0 (primeros datos) → Fase 1 (MVP Core) → Fase 2 (App) → Fase 3 (Schedule) → Fase 4 (Admin) → Fase 5 (Post-MVP). |
-| **Actualización** | Agregadas dependencias faltantes: `ioredis`, `sanitize-html`, `openai`, `@anthropic-ai/sdk`, `@nestjs/config`, `@nestjs/swagger`, `@anatine/zod-nestjs`. |
-| **Actualización** | Package manager: npm → pnpm. Turborepo como orquestador del monorepo con `ui: tui`. |
-| **Actualización** | Prisma movido a `packages/shared`. Schema único centralizado + `prisma.config.ts` + driver adapter `@prisma/adapter-pg` (requerido en v7). PrismaClient singleton via `getPrismaClient()`. |
-| **Actualización** | Roadmap Fase 0 simplificado: 7 tareas (eliminado expo, scraper, admin diferidos a fases posteriores). |
-
----
-
-*Este documento se actualiza a medida que el proyecto evoluciona. Última modificación: 2026-05-26.*
+<!-- Roadmap histórico, Next Steps y Changelog eliminados — ver ROADMAP.md + SPECS.md para el plan activo -->
