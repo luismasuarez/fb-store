@@ -45,11 +45,13 @@ Como administrador del sistema, quiero que el scraper se ejecute automáticament
 
 ---
 
-### User Story 3 - Consistencia y Trazabilidad en la API (Priority: P3)
+### User Story 3 - Consistencia y Trazabilidad en la API (Priority: P0 — Foundation)
+
+> ⚠️ **Prerrequisito de infraestructura**: Esta historia describe la base técnica (error handling, request tracing, validación, envelope) que las historias US1 y US2 necesitan para funcionar correctamente. En orden de implementación, debe ejecutarse antes que US1 y US2, aunque su impacto directo en el usuario es menor.
 
 Como desarrollador del sistema, quiero que todas las respuestas de la API tengan un formato consistente con requestId de correlación y errores categorizados, para poder diagnosticar problemas rápidamente y construir clientes predecibles.
 
-**Why this priority**: La consistencia de la API es fundamental para la mantenibilidad, pero el pipeline automático (P1) y el scheduler (P2) tienen más impacto directo en el usuario.
+**Why this priority**: Es la base técnica sobre la que se construye todo lo demás. Sin error handling consistente, request tracing y validación global, las historias US1 y US2 carecerían de la infraestructura necesaria para operar de forma robusta.
 
 **Independent Test**: Puede probarse haciendo cualquier request a la API y verificando que: (1) la respuesta incluye `x-request-id` header, (2) los errores tienen formato categorizado, (3) las listas paginadas usan envelope `{ data, pagination }`.
 
