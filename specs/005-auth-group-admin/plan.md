@@ -1,6 +1,6 @@
 # Implementation Plan: Autenticación + Administración de Grupos
 
-**Branch**: `004-auth-group-admin` | **Date**: 2026-07-18 | **Spec**: [spec.md](spec.md)
+**Branch**: `005-auth-group-admin` | **Date**: 2026-07-18 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/004-auth-group-admin/spec.md`
 

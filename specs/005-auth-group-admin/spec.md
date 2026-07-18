@@ -1,6 +1,6 @@
 # Feature Specification: Autenticación + Administración de Grupos
 
-**Feature Branch**: `004-auth-group-admin`
+**Feature Branch**: `005-auth-group-admin`
 
 **Created**: 2026-07-18
 
