@@ -278,6 +278,66 @@ export interface PaginationMeta {
 - On failure → log error, job is retried via BullMQ (with backoff)
 - Stay alive indefinitely (unlike current CLI that exits after processing)
 
+## 10. Out-of-Spec Decisions (Adopted During Implementation)
+
+### 10a. TDD Mandatory (NON-NEGOTIABLE)
+
+**Decision**: Amended constitution from "Testing is encouraged but not mandatory" to "TDD Mandatory (NON-NEGOTIABLE)". Tests MUST be written before implementation using Red-Green-Refactor cycle.
+
+**Rationale**: Adopted from portal_cloud project's constitution as a cross-project quality standard requested by the maintainer.
+
+**Impact**: Constitution v1.0.0 → v1.1.0. Sync Impact Report updated.
+
+---
+
+### 10b. Vitest as Test Runner
+
+**Decision**: Use Vitest instead of Jest for unit tests. Jest remains configured only for e2e tests (`test/jest-e2e.json`).
+
+**Rationale**: Vitest is faster (native SWC/ESBuild transform), uses same API as Jest, and integrates better with modern TypeScript 6.0. The plan.md already referenced Vitest as the testing framework.
+
+**Config details**:
+- `apps/api/vitest.config.ts` — `deps.inline` for `@nestjs/*` packages (decorators need transform)
+- `apps/api/vitest.setup.ts` — imports `reflect-metadata`
+- `packages/scraper/vitest.config.ts` — simple config, no deps.inline needed (no NestJS)
+- `packages/ai-processor/vitest.config.ts` — same as scraper
+
+**Test scripts**: Added `"test": "vitest run"` and `"test:watch": "vitest"` to all three packages.
+
+---
+
+### 10c. API_KEY Environment Variable
+
+**Decision**: Added `API_KEY` as a required environment variable in both `.env` and `.env.example`. Generated via `openssl rand -base64 32` (256 bits of entropy, 40-char alphanumeric).
+
+**Rationale**: The spec FR-021 requires API key authentication, and `AppConfigService.validateRequired()` validates it at startup. The `.env` file was missing this variable, causing the server to fail on start.
+
+---
+
+### 10d. Dev Startup Flow (Without Docker Compose Full Stack)
+
+**Decision**: Developers can run only Redis via `docker compose up -d redis` and connect to their local PostgreSQL directly. This avoids running the full stack (api, scraper, ai-processor containers) during local development.
+
+**Rationale**: Several developers already have PostgreSQL running locally. The full `docker compose up` starts 6 services including workers that need profiles, Playwright browsers, etc. For API development, only Redis is needed (BullMQ queue backend).
+
+---
+
+### 10e. SchedulerModule Needs Own BullModule.registerQueue
+
+**Decision**: `SchedulerModule` imports its own `BullModule.registerQueue({ name: "scrape" })` even though `QueueModule` is `@Global()`.
+
+**Rationale**: The `SchedulerService` injects `@InjectQueue('scrape')` directly (raw Queue, not QueueService), which requires the queue token to be registered in the importing module's scope. `QueueModule` being `@Global()` only makes its providers global, not the queue tokens from `BullModule.registerQueue()`.
+
+---
+
+### 10f. unplugin-swc for Vitest SWC Transform
+
+**Decision**: Install `unplugin-swc` for transforming NestJS decorators in vitest tests.
+
+**Rationale**: NestJS uses experimental decorators (`emitDecoratorMetadata`, `experimentalDecorators`). Vitest's esbuild transform doesn't handle decorators by default. `unplugin-swc` delegates to SWC which supports decorators. Later simplified to use `deps.inline` instead of the plugin.
+
+---
+
 ## Key Decisions Summary
 
 | # | Decision | Rationale |
@@ -291,3 +351,7 @@ export interface PaginationMeta {
 | 7 | Response envelope with `{ data, pagination }` | Consistent API contract, aligns with architecture target |
 | 8 | API Key via `x-api-key` header, NestJS guard | Simplest auth for single-admin internal tool |
 | 9 | Existing Docker services stay, only command changes | Minimal infra changes, workers already separated |
+| 10 | Vitest for unit tests | Faster than Jest, same API, modern TS support |
+| 11 | TDD mandatory in constitution | Cross-project quality standard |
+| 12 | Dev Redis-only startup (`docker compose up -d redis`) | Avoid full stack for API development |
+| 13 | SchedulerModule needs own BullModule.registerQueue | Queue tokens aren't globalized by @Global() |
