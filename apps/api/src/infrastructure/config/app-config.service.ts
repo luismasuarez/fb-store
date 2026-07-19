@@ -33,6 +33,9 @@ export class AppConfigService {
       "REDIS_URL",
       "API_KEY",
       "OPENROUTER_API_KEY",
+      "JWT_SECRET",
+      "ADMIN_EMAIL",
+      "ADMIN_PASSWORD",
     ];
     const missing: string[] = [];
     for (const key of required) {

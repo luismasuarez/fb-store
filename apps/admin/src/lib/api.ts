@@ -5,6 +5,72 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Auth interceptor — attaches Bearer token from localStorage
+api.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem("fb-store-auth");
+    if (raw) {
+      const { accessToken } = JSON.parse(raw);
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return config;
+});
+
+// Auth error interceptor — on 401, try to refresh
+let isRefreshing = false;
+let pendingRefresh: Promise<boolean> | null = null;
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status !== 401) return Promise.reject(error);
+    if (isRefreshing) {
+      await pendingRefresh;
+      return api.request(error.config);
+    }
+    isRefreshing = true;
+    pendingRefresh = (async () => {
+      try {
+        const raw = localStorage.getItem("fb-store-auth");
+        if (!raw) return false;
+        const { refreshToken } = JSON.parse(raw);
+        if (!refreshToken) return false;
+
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!res.ok) {
+          localStorage.removeItem("fb-store-auth");
+          window.location.href = "/login";
+          return false;
+        }
+        const data = await res.json();
+        localStorage.setItem("fb-store-auth", JSON.stringify(data));
+        return true;
+      } catch {
+        localStorage.removeItem("fb-store-auth");
+        window.location.href = "/login";
+        return false;
+      } finally {
+        isRefreshing = false;
+        pendingRefresh = null;
+      }
+    })();
+    const ok = await pendingRefresh;
+    if (ok) {
+      return api.request(error.config);
+    }
+    return Promise.reject(error);
+  },
+);
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
@@ -64,38 +130,63 @@ export interface ListingFilters {
   province?: string;
   municipality?: string;
   neighborhood?: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  minPrice?: number;
-  maxPrice?: number;
-  currency?: string;
+  bedroomsMin?: number;
+  bedroomsMax?: number;
+  bathroomsMin?: number;
+  bathroomsMax?: number;
+  priceMin?: number;
+  priceMax?: number;
+  category?: string;
   status?: string;
-  search?: string;
-  sort?: string;
   page?: number;
   limit?: number;
+  query?: string;
 }
 
-export async function fetchListings(
-  filters: ListingFilters
-): Promise<PaginatedResponse<Listing>> {
+export interface Group {
+  id: string;
+  name: string;
+  url: string | null;
+  maxPosts: number;
+  isActive: boolean;
+  lastScraped: string | null;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface CreateGroupInput {
+  id: string;
+  name: string;
+  url: string;
+  maxPosts?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateGroupInput {
+  name?: string;
+  url?: string;
+  maxPosts?: number;
+  isActive?: boolean;
+}
+
+export async function fetchListings(filters: ListingFilters = {}): Promise<PaginatedResponse<Listing>> {
   const params: Record<string, string> = {};
-  if (filters.listingType) params.listing_type = filters.listingType;
-  if (filters.propertyType) params.property_type = filters.propertyType;
+  if (filters.listingType) params.listingType = filters.listingType;
+  if (filters.propertyType) params.propertyType = filters.propertyType;
   if (filters.province) params.province = filters.province;
   if (filters.municipality) params.municipality = filters.municipality;
   if (filters.neighborhood) params.neighborhood = filters.neighborhood;
-  if (filters.bedrooms !== undefined) params.bedrooms = String(filters.bedrooms);
-  if (filters.bathrooms !== undefined) params.bathrooms = String(filters.bathrooms);
-  if (filters.minPrice !== undefined) params.min_price = String(filters.minPrice);
-  if (filters.maxPrice !== undefined) params.max_price = String(filters.maxPrice);
-  if (filters.currency) params.currency = filters.currency;
+  if (filters.bedroomsMin !== undefined) params.bedroomsMin = String(filters.bedroomsMin);
+  if (filters.bedroomsMax !== undefined) params.bedroomsMax = String(filters.bedroomsMax);
+  if (filters.bathroomsMin !== undefined) params.bathroomsMin = String(filters.bathroomsMin);
+  if (filters.bathroomsMax !== undefined) params.bathroomsMax = String(filters.bathroomsMax);
+  if (filters.priceMin !== undefined) params.priceMin = String(filters.priceMin);
+  if (filters.priceMax !== undefined) params.priceMax = String(filters.priceMax);
+  if (filters.category) params.category = filters.category;
   if (filters.status) params.status = filters.status;
-  if (filters.search) params.search = filters.search;
-  if (filters.sort) params.sort = filters.sort;
   if (filters.page) params.page = String(filters.page);
   if (filters.limit) params.limit = String(filters.limit);
-
+  if (filters.query) params.query = filters.query;
   const { data } = await api.get<PaginatedResponse<Listing>>("/listings", { params });
   return data;
 }
@@ -103,6 +194,37 @@ export async function fetchListings(
 export async function fetchListing(id: string): Promise<Listing | null> {
   const { data } = await api.get<Listing | null>(`/listings/${id}`);
   return data;
+}
+
+export async function triggerScrape(groupId?: string, maxPosts?: number): Promise<{ jobId: string }> {
+  const { data } = await api.post("/scrape", { groupId, maxPosts });
+  return data;
+}
+
+export async function triggerAiProcess(rawPostIds?: string[]): Promise<{ jobId: string }> {
+  const { data } = await api.post("/ai-process", { rawPostIds });
+  return data;
+}
+
+export async function fetchGroups(page = 1, limit = 20): Promise<PaginatedResponse<Group>> {
+  const { data } = await api.get<PaginatedResponse<Group>>("/groups", {
+    params: { page, limit },
+  });
+  return data;
+}
+
+export async function createGroup(input: CreateGroupInput): Promise<Group> {
+  const { data } = await api.post<{ data: Group }>("/groups", input);
+  return data.data;
+}
+
+export async function updateGroup(id: string, input: UpdateGroupInput): Promise<Group> {
+  const { data } = await api.put<{ data: Group }>(`/groups/${id}`, input);
+  return data.data;
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  await api.delete(`/groups/${id}`);
 }
 
 export function getImageUrl(image: ListingImage): string {

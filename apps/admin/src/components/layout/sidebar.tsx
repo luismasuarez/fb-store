@@ -3,6 +3,7 @@ import { NavLink } from "react-router";
 const links = [
   { to: "/", label: "Dashboard" },
   { to: "/listings", label: "Listings" },
+  { to: "/groups", label: "Grupos" },
 ];
 
 export function Sidebar() {

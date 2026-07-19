@@ -95,3 +95,25 @@ No [NEEDS CLARIFICATION] markers existed in the spec. This research documents th
 - **Alternatives considered**:
   - Bootstrap endpoint (`POST /api/auth/setup`): Requires HTTPS + one-time token, more complex
   - Hardcoded defaults: Insecure, violates security best practices
+
+### Decision 8: Passport-jwt Custom Token Extraction for Refresh
+
+- **Decision**: Use `ExtractJwt.fromBodyField('refreshToken')` in the RefreshJwtStrategy to extract the refresh token from the request body instead of the Authorization header
+- **Rationale**: The contract specifies refresh token is sent in `{ refreshToken: "..." }` body, not as a Bearer header. passport-jwt supports custom extraction via `jwtFromRequest` callback — `ExtractJwt.fromBodyField('refreshToken')` handles this natively
+- **Alternative**: Custom `jwtFromRequest` callback — same result, more code
+
+### Decision 9: AuthGuard Creates Authenticated User on Request
+
+- **Decision**: Use `AuthGuard('jwt')` from `@nestjs/passport` which attaches decoded payload to `request.user` after successful validation
+- **Rationale**: NestJS Passport integration automatically populates `request.user` from the return value of the strategy's `validate()` method. The `handleRequest()` method in `JwtAuthGuard` chokes errors into consistent `UnauthorizedException`
+- **Pattern**: `JwtAuthGuard` extends `AuthGuard('jwt')`, override `handleRequest` for consistent 401 responses
+
+### Package Versions (Context7 Research — 2026-07-18)
+
+| Package | Version | Notes |
+|---------|---------|-------|
+| `@nestjs/passport` | latest (compatible with NestJS 11) | — |
+| `passport` | latest | Peer dep of @nestjs/passport |
+| `passport-jwt` | latest | JWT Bearer + body extraction |
+| `@nestjs/jwt` | latest | JWT sign/verify utility |
+| `@types/passport-jwt` | latest | Dev dependency |

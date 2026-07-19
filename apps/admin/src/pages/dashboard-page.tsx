@@ -1,6 +1,7 @@
 import { useListings } from "@/hooks/use-listings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrapeControls } from "@/components/dashboard/scrape-controls";
 
 export function DashboardPage() {
   const { data: all, isLoading } = useListings({ limit: 1 });
@@ -38,22 +39,7 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Instrucciones</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            Usa el scraper para obtener posts de Facebook: <code className="bg-muted px-1 rounded">pnpm scrape</code>
-          </p>
-          <p>
-            Procesa con AI: <code className="bg-muted px-1 rounded">pnpm ai:process</code>
-          </p>
-          <p>
-            Los datos aparecerán en la sección <strong>Listings</strong>.
-          </p>
-        </CardContent>
-      </Card>
+      <ScrapeControls />
     </div>
   );
 }

@@ -1,5 +1,7 @@
-import { Controller, Get, Put, Body, BadRequestException } from "@nestjs/common";
+import { Controller, Get, Put, Body, BadRequestException, UseGuards } from "@nestjs/common";
 import { SchedulerService } from "../application/scheduler.service";
+import { JwtAuthGuard } from "../../auth/api/jwt-auth.guard";
+import { SkipAuth } from "../../../core/guards/api-key.guard";
 
 interface ScheduleUpdateBody {
   intervalMinutes?: number;
@@ -8,6 +10,7 @@ interface ScheduleUpdateBody {
   enabled?: boolean;
 }
 
+@SkipAuth()
 @Controller("api/schedule")
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
@@ -18,6 +21,7 @@ export class SchedulerController {
   }
 
   @Put()
+  @UseGuards(JwtAuthGuard)
   async updateSchedule(@Body() body: ScheduleUpdateBody) {
     try {
       const updated = await this.schedulerService.updateSchedule(body);

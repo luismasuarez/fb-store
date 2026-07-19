@@ -1,23 +1,5 @@
-branch_numbering: sequential
-init_commit_message: "[Spec Kit] Initial commit"
-
 auto_commit:
   default: false
-  after_specify:
-    enabled: true
-    message: "[Spec Kit] Add specification"
-  after_clarify:
-    enabled: true
-    message: "[Spec Kit] Clarify specification"
-  after_plan:
-    enabled: true
-    message: "[Spec Kit] Add implementation plan"
-  after_tasks:
-    enabled: true
-    message: "[Spec Kit] Generate task list"
-  after_analyze:
-    enabled: true
-    message: "[Spec Kit] Analyze and remediate specification"
   after_implement:
     enabled: true
-    message: "[Spec Kit] Implement feature"
+    message: "[Spec 005] Implement JWT auth, group CRUD, dashboard controls"

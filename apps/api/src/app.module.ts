@@ -10,7 +10,9 @@ import { ListingsModule } from "./features/listings/listings.module";
 import { RawPostsModule } from "./features/raw-posts/raw-posts.module";
 import { ScrapeModule } from "./features/scrape/scrape.module";
 import { AiProcessorModule } from "./features/ai-processor/ai-processor.module";
+import { GroupsModule } from "./features/groups/groups.module";
 import { SchedulerModule } from "./features/scheduler/scheduler.module";
+import { AuthModule } from "./features/auth/auth.module";
 import { ZodValidationPipe } from "./core/pipes/zod-validation.pipe";
 import { HttpExceptionFilter } from "./core/filters/http-exception.filter";
 import { RequestIdInterceptor } from "./core/interceptors/request-id.interceptor";
@@ -29,7 +31,9 @@ import { ApiKeyGuard } from "./core/guards/api-key.guard";
     RawPostsModule,
     ScrapeModule,
     AiProcessorModule,
+    GroupsModule,
     SchedulerModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

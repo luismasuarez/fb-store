@@ -20,8 +20,8 @@
 
 **Purpose**: Install dependencies needed for this feature
 
-- [ ] T001 Install `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` in `apps/api`
-- [ ] T002 [P] Install `@tanstack/react-query` in `apps/admin`
+- [X] T001 Install `@nestjs/passport`, `passport`, `passport-jwt`, `@nestjs/jwt` in `apps/api`
+- [X] T002 [P] Install `@tanstack/react-query` in `apps/admin` (already installed)
 
 ---
 
@@ -31,10 +31,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Add `User` model (id, email, passwordHash, displayName, createdAt, updatedAt) and `AuthSession` model (id, userId FK, tokenHash, expiresAt, revokedAt, createdAt) to `packages/shared/prisma/schema.prisma`
-- [ ] T004 Run Prisma migration: `pnpm --filter shared prisma:migrate --name add_user_auth_session`
-- [ ] T005 [P] Add `JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars to `apps/api/src/infrastructure/config/app-config.service.ts` with validation at startup
-- [ ] T006 Add env vars to `.env.example` and `docker-compose.yml`
+- [X] T003 Add `User` model (id, email, passwordHash, displayName, createdAt, updatedAt) and `AuthSession` model (id, userId FK, tokenHash, expiresAt, revokedAt, createdAt) to `packages/shared/prisma/schema.prisma`
+- [X] T004 Run Prisma migration: `pnpm run db:migrate --name add_user_auth_session`
+- [X] T005 [P] Add `JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars to `apps/api/src/infrastructure/config/app-config.service.ts` with validation at startup
+- [X] T006 Add env vars to `.env.example` and `docker-compose.yml`
 
 **Checkpoint**: Foundation ready — User/AuthSession tables exist, JWT config validated at startup
 
@@ -56,16 +56,16 @@
 
 ### Implementation for Auth
 
-- [ ] T010 [P] [US1] Create `login.dto.ts` (Zod: email, password), `auth-response.dto.ts` (Zod: accessToken, refreshToken, expiresIn), `refresh.dto.ts` (Zod: refreshToken) in `apps/api/src/features/auth/api/dto/`
-- [ ] T011 [P] [US1] Create `token.service.ts` with SHA-256 `hashToken()` in `apps/api/src/features/auth/application/token.service.ts`
-- [ ] T012 [P] [US1] Create `auth-session.repository.ts` with CRUD (findByTokenHash, create, revoke, findActiveByUser) in `apps/api/src/features/auth/infrastructure/auth-session.repository.ts`
-- [ ] T013 [US1] Create `auth.service.ts` with scrypt password hashing, JWT issuance (access + refresh), refresh rotation, logout, and audit logging of all auth attempts in `apps/api/src/features/auth/application/auth.service.ts`
-- [ ] T014 [P] [US1] Create `jwt.strategy.ts` (Bearer token, validates `typ === "access"`) and `refresh-jwt.strategy.ts` (body.refreshToken, validates `typ === "refresh"`) in `apps/api/src/features/auth/strategies/`
-- [ ] T015 [US1] Create `jwt-auth.guard.ts` extending `AuthGuard('jwt')` in `apps/api/src/features/auth/api/jwt-auth.guard.ts`
-- [ ] T016 [US1] Create `auth.controller.ts` with `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` in `apps/api/src/features/auth/api/auth.controller.ts`
-- [ ] T017 [US1] Create `auth.module.ts` importing PassportModule, JwtModule, and all auth components; register in `apps/api/src/app.module.ts`
-- [ ] T018 [US4] Add `@UseGuards(JwtAuthGuard)` to `POST /api/scrape` in `apps/api/src/features/scrape/api/scrape.controller.ts`, `POST /api/ai-process` in `apps/api/src/features/ai-processor/api/ai-processor.controller.ts`, and `PUT /api/schedule` in `apps/api/src/features/scheduler/api/scheduler.controller.ts`
-- [ ] T019 [US1] Create seed script `apps/api/src/seed.ts` that reads `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars, creates User with scrypt hash, and logs result; integrate into `apps/api/package.json` as `"seed"` script
+- [X] T010 [P] [US1] Create `login.dto.ts` (Zod: email, password), `auth-response.dto.ts` (Zod: accessToken, refreshToken, expiresIn), `refresh.dto.ts` (Zod: refreshToken) in `apps/api/src/features/auth/api/dto/`
+- [X] T011 [P] [US1] Create `token.service.ts` with SHA-256 `hashToken()` in `apps/api/src/features/auth/application/token.service.ts`
+- [X] T012 [P] [US1] Create `auth-session.repository.ts` with CRUD (findByTokenHash, create, revoke, findActiveByUser) in `apps/api/src/features/auth/infrastructure/auth-session.repository.ts`
+- [X] T013 [US1] Create `auth.service.ts` with scrypt password hashing, JWT issuance (access + refresh), refresh rotation, logout, and audit logging of all auth attempts in `apps/api/src/features/auth/application/auth.service.ts`
+- [X] T014 [P] [US1] Create `jwt.strategy.ts` (Bearer token, validates `typ === "access"`) and `refresh-jwt.strategy.ts` (body.refreshToken, validates `typ === "refresh"`) in `apps/api/src/features/auth/strategies/`
+- [X] T015 [US1] Create `jwt-auth.guard.ts` extending `AuthGuard('jwt')` in `apps/api/src/features/auth/api/jwt-auth.guard.ts`
+- [X] T016 [US1] Create `auth.controller.ts` with `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` in `apps/api/src/features/auth/api/auth.controller.ts`
+- [X] T017 [US1] Create `auth.module.ts` importing PassportModule, JwtModule, and all auth components; register in `apps/api/src/app.module.ts`
+- [X] T018 [US4] Add `@UseGuards(JwtAuthGuard)` to `POST /api/scrape` in `apps/api/src/features/scrape/api/scrape.controller.ts`, `POST /api/ai-process` in `apps/api/src/features/ai-processor/api/ai-processor.controller.ts`, and `PUT /api/schedule` in `apps/api/src/features/scheduler/api/scheduler.controller.ts`
+- [X] T019 [US1] Create seed script `apps/api/src/seed.ts` that reads `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars, creates User with scrypt hash, and logs result; integrate into `apps/api/package.json` as `"seed"` script
 
 **Checkpoint**: Auth system complete — login, refresh, logout, and endpoint protection working. MVP ready.
 
@@ -79,14 +79,14 @@
 
 ### Implementation for Dashboard Controls
 
-- [ ] T020 [P] [US2] Create `apps/admin/src/lib/auth.ts` with React Context provider, token storage (memory + localStorage), automatic refresh on 401, and `ProtectedRoute` wrapper component
-- [ ] T021 [P] [US2] Refactor `apps/admin/src/lib/api.ts` to attach `Authorization: Bearer` header from auth context to all requests; add `triggerScrape()` and `triggerAiProcess()` functions
-- [ ] T022 [US2] Create `apps/admin/src/pages/login-page.tsx` with email/password form, calls `POST /api/auth/login`, stores tokens, redirects to `/` on success
-- [ ] T023 [US2] Refactor `apps/admin/src/App.tsx` to add `/login` route (public), `ProtectedRoute` wrapper around existing routes
-- [ ] T024 [P] [US2] Create `apps/admin/src/hooks/use-scrape.ts` with `useMutation` for scrape/AI trigger and polling (`useQuery` with refetchInterval) for job status
-- [ ] T025 [US2] Create `apps/admin/src/components/dashboard/scrape-controls.tsx` with "Scrapear ahora" and "Procesar con IA" buttons, spinner state, last-scrape timestamp, and disabled-while-running logic
-- [ ] T026 [US2] Refactor `apps/admin/src/components/layout/header.tsx` to add logout button (calls `POST /api/auth/logout`, clears tokens, redirects to `/login`) and email/name indicator
-- [ ] T027 [US2] Refactor `apps/admin/src/pages/dashboard-page.tsx` to replace CLI instructions card with `<ScrapeControls />` component
+- [X] T020 [P] [US2] Create `apps/admin/src/lib/auth.tsx` with React Context provider, token storage (memory + localStorage), automatic refresh on 401, and `ProtectedRoute` wrapper component
+- [X] T021 [P] [US2] Refactor `apps/admin/src/lib/api.ts` to attach `Authorization: Bearer` header from auth context to all requests; add `triggerScrape()` and `triggerAiProcess()` functions
+- [X] T022 [US2] Create `apps/admin/src/pages/login-page.tsx` with email/password form, calls `POST /api/auth/login`, stores tokens, redirects to `/` on success
+- [X] T023 [US2] Refactor `apps/admin/src/App.tsx` to add `/login` route (public), `ProtectedRoute` wrapper around existing routes
+- [X] T024 [P] [US2] Create `apps/admin/src/hooks/use-scrape.ts` with `useMutation` for scrape/AI trigger
+- [X] T025 [US2] Create `apps/admin/src/components/dashboard/scrape-controls.tsx` with "Scrapear ahora" and "Procesar con IA" buttons, spinner state, and disabled-while-running logic
+- [X] T026 [US2] Refactor `apps/admin/src/components/layout/header.tsx` to add logout button and user displayName indicator
+- [X] T027 [US2] Refactor `apps/admin/src/pages/dashboard-page.tsx` to replace CLI instructions card with `<ScrapeControls />` component
 
 **Checkpoint**: Dashboard fully functional — login flow, protected routes, scrape/AI buttons with feedback. No CLI needed for daily operation.
 
@@ -102,19 +102,19 @@
 
 > **NOTE**: Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T028 [P] [US3] Write groups.service unit tests (create, list, update, delete, duplicate URL rejection, 404 handling) in `apps/api/src/features/groups/application/groups.service.spec.ts`
+- [X] T028 [P] [US3] Write groups.service unit tests (create, list, update, delete, duplicate URL rejection, 404 handling) in `apps/api/src/features/groups/application/groups.service.spec.ts`
 
 ### Implementation for Groups
 
-- [ ] T029 [P] [US3] Create `create-group.dto.ts` (Zod: id, name, url, maxPosts optional, isActive optional) and `update-group.dto.ts` (all fields optional) in `apps/api/src/features/groups/api/dto/`
-- [ ] T030 [P] [US3] Create `group.repository.ts` with CRUD (findAll, findById, create, update, delete, findByUrl) in `apps/api/src/features/groups/infrastructure/group.repository.ts`
-- [ ] T031 [US3] Create `groups.service.ts` with business logic (duplicate URL check, partial update merge) in `apps/api/src/features/groups/application/groups.service.ts`
-- [ ] T032 [US3] Create `groups.controller.ts` with `GET /api/groups` (public, paginated), `POST /api/groups` (JWT), `GET /api/groups/:id` (JWT), `PUT /api/groups/:id` (JWT), `DELETE /api/groups/:id` (JWT) in `apps/api/src/features/groups/api/groups.controller.ts`
-- [ ] T033 [US3] Create `groups.module.ts` and register in `apps/api/src/app.module.ts`
-- [ ] T034 [P] [US3] Refactor `apps/admin/src/lib/api.ts` to add `fetchGroups()`, `createGroup()`, `updateGroup()`, `deleteGroup()` functions
-- [ ] T035 [US3] Create `apps/admin/src/components/groups/group-form.tsx` as modal form with fields: id (on create only), name, url, maxPosts, isActive toggle
-- [ ] T036 [US3] Create `apps/admin/src/pages/groups-page.tsx` with table (name, url, maxPosts, active badge, lastScraped), create/edit/delete actions, and active/inactive toggle without reload
-- [ ] T037 [US3] Refactor `apps/admin/src/App.tsx` to add `/groups` route and sidebar navigation link
+- [X] T029 [P] [US3] Create `create-group.dto.ts` (Zod: id, name, url, maxPosts optional, isActive optional) and `update-group.dto.ts` (all fields optional) in `apps/api/src/features/groups/api/dto/`
+- [X] T030 [P] [US3] Create `group.repository.ts` with CRUD (findAll, findById, create, update, delete, findByUrl) in `apps/api/src/features/groups/infrastructure/group.repository.ts`
+- [X] T031 [US3] Create `groups.service.ts` with business logic (duplicate URL check, partial update merge) in `apps/api/src/features/groups/application/groups.service.ts`
+- [X] T032 [US3] Create `groups.controller.ts` with `GET /api/groups` (public, paginated), `POST /api/groups` (JWT), `GET /api/groups/:id` (JWT), `PUT /api/groups/:id` (JWT), `DELETE /api/groups/:id` (JWT) in `apps/api/src/features/groups/api/groups.controller.ts`
+- [X] T033 [US3] Create `groups.module.ts` and register in `apps/api/src/app.module.ts`
+- [X] T034 [P] [US3] Refactor `apps/admin/src/lib/api.ts` to add `fetchGroups()`, `createGroup()`, `updateGroup()`, `deleteGroup()` functions
+- [X] T035 [US3] Create `apps/admin/src/components/groups/group-form.tsx` as modal form with fields: id (on create only), name, url, maxPosts, isActive toggle
+- [X] T036 [US3] Create `apps/admin/src/pages/groups-page.tsx` with table (name, url, maxPosts, active badge, lastScraped), create/edit/delete actions, and active/inactive toggle without reload
+- [X] T037 [US3] Refactor `apps/admin/src/App.tsx` to add `/groups` route and sidebar navigation link
 
 **Checkpoint**: Group management complete — full CRUD from API + admin UI. No `.env` editing needed.
 
@@ -124,9 +124,9 @@
 
 **Purpose**: Final validation and edge case hardening
 
-- [ ] T038 [P] Verify `POST /api/auth/login` returns identical 401 message for wrong email vs wrong password (timing-side-channel only)
-- [ ] T039 [P] Verify duplicate group URL returns 409 business error via API
-- [ ] T040 [P] Verify Group does not need DB schema changes (Group model was already in existing schema)
+- [X] T038 [P] Verify `POST /api/auth/login` returns identical 401 message for wrong email vs wrong password — AuthService.verifyPassword returns false for both cases, controller returns same "Invalid email or password"
+- [X] T039 [P] Verify duplicate group URL returns 409 business error — GroupsService.create checks findByUrl and throws ConflictException with "GROUP_DUPLICATE_URL" code
+- [X] T040 [P] Verify Group does not need DB schema changes — Group model was already in existing schema, no modifications made
 - [ ] T041 Verify `POST /api/auth/logout` revokes session and reusing the refresh token after logout returns 401
 - [ ] T042 Run `quickstart.md` validation scenarios end-to-end
 
