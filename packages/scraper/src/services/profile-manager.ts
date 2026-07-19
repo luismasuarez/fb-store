@@ -177,6 +177,7 @@ export async function checkSession(name: string): Promise<SessionCheckResult> {
       await context.close();
     }
   } catch {
+    await updateProfileMeta(name, { loginStatus: "unknown", lastUsedAt: checkedAt }).catch(() => {});
     return { alive: false, reason: "network-error", checkedAt };
   }
 }
