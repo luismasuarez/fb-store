@@ -117,3 +117,74 @@ No [NEEDS CLARIFICATION] markers existed in the spec. This research documents th
 | `passport-jwt` | latest | JWT Bearer + body extraction |
 | `@nestjs/jwt` | latest | JWT sign/verify utility |
 | `@types/passport-jwt` | latest | Dev dependency |
+
+---
+
+## Post-Implementation Findings (Out of Original Scope)
+
+These discoveries and changes emerged during implementation. They were not in the original spec or plan but were necessary for the feature to work correctly.
+
+### Finding 1: Dual-Guard Architecture Causes Infinite Loop — Unified Guard Required
+
+- **Problem**: Original design had `ApiKeyGuard` (global, checks `x-api-key`) + `JwtAuthGuard` (opt-in, checks Bearer JWT). Endpoints not marked with `@UseGuards(JwtAuthGuard)` defaulted to requiring `x-api-key`. The admin SPA doesn't send `x-api-key` (it uses JWT), so any endpoint without explicit JWT guard protection returned 401. The axios interceptor interpreted the 401 as "token expired" and attempted refresh, but the retried request also lacked `x-api-key` → infinite loop (100+ refreshes/second).
+- **Fix**: Unified `ApiKeyGuard` to accept EITHER valid `x-api-key` OR valid `Authorization: Bearer <jwt>` (with `typ === "access"`). Single guard, single code path, no decorator coordination needed.
+- **Files changed**: `apps/api/src/core/guards/api-key.guard.ts` — added `JwtService` injection and JWT verification logic.
+- **Files deleted**: `jwt-auth.guard.ts`, `jwt.strategy.ts` — no longer needed.
+- **Impact**: All endpoints now accept both auth methods automatically. `@SkipAuth()` only needed for truly public endpoints (login, refresh, health).
+
+### Finding 2: Zod DTOs Were Never Actually Validated (ZodSchemaPipe)
+
+- **Problem**: The global `ZodValidationPipe` reads the schema from `metadata.metatype`, but TypeScript type aliases (`type LoginDto = z.infer<...>`) are erased at runtime. `metatype` becomes `Object` or `undefined`, so the pipe passes through without validating anything. All auth and group inputs were unchecked.
+- **Fix**: Created `ZodSchemaPipe` at `apps/api/src/core/pipes/zod-schema.pipe.ts` — a standalone factory function (not `@Injectable()`) that returns a `PipeTransform` for a given Zod schema. Used as `@Body(ZodSchemaPipe(LoginDto))` in controllers.
+- **Root cause**: The original `ZodValidationPipe` is `@Injectable()` with no constructor params, used as a global pipe via `APP_PIPE`. Adding a constructor param would cause NestJS DI to fail globally. The solution is a separate non-DI function.
+
+### Finding 3: BullMQ Prefix Mismatch Between API and Workers
+
+- **Problem**: The API registers BullMQ queues with `prefix: "{fb-store}"` (from `BULL_PREFIX` env var, defaulting to `"{fb-store}"`). The scraper and AI processor workers created their BullMQ `Worker` and `Queue` instances without specifying any prefix. BullMQ's default prefix is `"bull"` (or empty depending on version). Result: API enqueues jobs under `{fb-store}:scrape:...` but workers listen on `scrape:...` or `bull:scrape:...`. Jobs were queued but never processed.
+- **Fix**: Added `bullPrefix = process.env.BULL_PREFIX || "{fb-store}"` to both `packages/scraper/src/worker.ts` and `packages/ai-processor/src/worker.ts`, and passed it to both `Worker` and `Queue` constructor options.
+- **Impact**: Workers now process jobs from the correct queue. The pipeline API → scraper → AI processor works end-to-end.
+
+### Finding 4: Scraper Reads Groups from Env Var, Not Database
+
+- **Problem**: The spec says "Grupos gestionables desde el web (crear, editar, activar/desactivar, eliminar) sin tocar .env", but the scraper (`packages/scraper/src/worker.ts` and `packages/scraper/src/index.ts`) reads groups exclusively from `process.env.FB_GROUPS`. Groups created via the web CRUD are stored in the `Group` DB table, but the scraper never queries it.
+- **Fix**: Replaced `JSON.parse(process.env.FB_GROUPS)` with `prisma.group.findMany({ where: { isActive: true } })` in both `worker.ts` and `index.ts`.
+- **Impact**: Groups created/modified via the web UI are immediately used by the scraper on the next job. No `.env` editing or restart needed.
+- **Note**: The `GroupConfig` interface (`id`, `name`, `maxPosts`) maps directly to the `Group` Prisma model fields.
+
+### Finding 5: Workers Don't Start Automatically
+
+- **Problem**: The `docker-compose.yml` defines `scraper` and `ai-processor` services with `restart: unless-stopped`, but they don't start with `docker compose up` unless explicitly named. For local development (API running via `pnpm dev`), workers must be started manually with `nohup npx tsx packages/scraper/src/worker.ts`.
+- **Current approach**: Run workers in background with explicit env vars:
+  ```bash
+  REDIS_HOST=localhost REDIS_PORT=6379 BULL_PREFIX="{fb-store}" \
+    DATABASE_URL="postgresql://fbstore:fbstore@localhost:5432/fbstore" \
+    nohup npx tsx packages/scraper/src/worker.ts &
+  REDIS_HOST=localhost REDIS_PORT=6379 BULL_PREFIX="{fb-store}" \
+    DATABASE_URL="postgresql://fbstore:fbstore@localhost:5432/fbstore" \
+    nohup npx tsx packages/ai-processor/src/worker.ts &
+  ```
+- **Note for future**: Could be solved with a convenience script `pnpm dev:workers` or by moving workers into the API process using `@nestjs/bullmq` `@Processor()` decorators.
+
+### Finding 6: Playwright Browser Compatibility with Ubuntu 26.04
+
+- **Problem**: `playwright install chromium` fails with "Playwright does not support chromium on ubuntu26.04-x64". The installed system is very new and Playwright hasn't shipped prebuilt binaries for it yet.
+- **Workaround**: Chromium was previously installed (likely when the system was Ubuntu 24.x or earlier) and remains in `~/.cache/ms-playwright/`. As long as the cached browser exists, the scraper works. On a fresh system, Docker (with pre-installed browsers) would be required.
+- **Recommendation**: For production, use the Docker deployment which has browsers pre-installed in the Dockerfile.
+
+### Finding 7: Chrome ProcessSingleton Lock on Profile
+
+- **Problem**: If the scraper crashes or is killed uncleanly, Chrome leaves a `SingletonLock` file in the profile directory (`profiles/cuenta-1/SingletonLock`). On restart, Playwright refuses to launch because it detects another instance using the profile.
+- **Fix**: Delete the lock files before restarting: `rm -f profiles/cuenta-1/SingletonLock profiles/cuenta-1/SingletonSocket`.
+- **Potential permanent fix**: Use a temporary copy of the profile for each scrape job, or implement cleanup in the worker's `failed` event handler.
+
+### Finding 8: Admin SPA Login Route
+
+- **Detail**: The login page is at `/login` (not `/`). The root route `/` is the protected dashboard. This is handled by `ProtectedRoute` in `auth.tsx` which redirects to `/login` if no valid token exists.
+- **File**: `apps/admin/src/lib/auth.tsx` — `ProtectedRoute` component using React Router's `Navigate` to `/login`.
+- **Edge case**: Token stored in localStorage is loaded on mount. If expired, the axios interceptor attempts refresh. If refresh fails, token is cleared and user is redirected to `/login`.
+
+### Finding 9: Git Auto-Commit Extension Not Initialized
+
+- **Problem**: `.specify/extensions/git/git-config.yml` didn't exist, so the speckit-git-commit skill had no configuration and skipped commits after implementation.
+- **Fix**: Created `.specify/extensions/git/git-config.yml` with `after_implement: enabled: true` and the auto-commit script at `.specify/extensions/git/scripts/bash/auto-commit.sh`.
+- **Note**: The script uses grep-based YAML parsing (no Ruby dependency required).
