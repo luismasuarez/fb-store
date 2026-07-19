@@ -1,4 +1,6 @@
-import { Controller, Post, Body, HttpCode } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, HttpCode, Res } from "@nestjs/common";
+import type { FastifyReply } from "fastify";
+import { Readable } from "stream";
 import { ScrapeService } from "../application/scrape.service";
 
 interface ScrapeBody {
@@ -14,5 +16,33 @@ export class ScrapeController {
   @HttpCode(202)
   async trigger(@Body() body: ScrapeBody) {
     return this.scrapeService.triggerScrape(body?.groupId, body?.maxPosts);
+  }
+
+  @Get(":jobId/events")
+  async streamEvents(
+    @Param("jobId") jobId: string,
+    @Res() reply: FastifyReply,
+  ) {
+    const scraperRes = await this.scrapeService.fetchJobEventsStream(jobId);
+    if (!scraperRes) {
+      return reply.status(404).send({
+        statusCode: 404,
+        message: `Job ${jobId} not found`,
+        error: "Not Found",
+      });
+    }
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+    });
+
+    const nodeStream = Readable.fromWeb(
+      scraperRes.body as ReadableStream<Uint8Array>,
+    );
+    nodeStream.pipe(reply.raw);
   }
 }

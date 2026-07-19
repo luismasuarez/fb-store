@@ -72,6 +72,8 @@ services:
       - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-604800}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
+      - SCRAPER_URL=http://scraper:3001
+      - SCRAPER_API_KEY=${SCRAPER_API_KEY:-dev-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,22 +87,23 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.scraper
-    command: ["node", "packages/scraper/dist/worker.js"]
+    ports:
+      - "3001:3001"
+      - "6080:6080"
     env_file:
       - .env
     environment:
       - NODE_ENV=production
+      - PORT=3001
+      - SCRAPER_API_KEY=${SCRAPER_API_KEY:-dev-key}
       - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
-      - REDIS_URL=redis://redis:6379
     volumes:
       - ./profiles:/app/profiles
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -h redis ping || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/ready"]
       interval: 30s
       timeout: 10s
       retries: 3

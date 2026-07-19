@@ -24,6 +24,7 @@ export async function scrapeGroup(
   group: GroupConfig,
   maxScrolls: number,
   scrollDelayMs: number,
+  onProgress?: (phase: string, current: number, total: number) => void,
 ): Promise<RawPost[]> {
   const context = await createContext(profileDir);
   const page = await context.newPage();
@@ -34,8 +35,10 @@ export async function scrapeGroup(
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(3000);
+    onProgress?.("navigating", 1, 1);
 
     for (let i = 0; i < maxScrolls; i++) {
+      onProgress?.("scrolling", i + 1, maxScrolls);
       await page.evaluate(() => window.scrollBy(0, 800));
       await page.waitForTimeout(scrollDelayMs);
     }
@@ -55,11 +58,16 @@ export async function scrapeGroup(
     const posts: RawPost[] = Array.isArray(raw) ? raw : [];
     const valid = posts.filter((p) => p.text.length > 20);
     console.log(`📦 ${valid.length} posts extraídos`);
+    onProgress?.("extracting", 1, 1);
 
+    const totalImages = valid.reduce((sum, p) => sum + (Array.isArray(p.images) ? p.images.length : 0), 0);
+    let imgCount = 0;
     for (const post of valid) {
       if (post.images.length > 0) {
         const imgs: { url: string; mime: string; data: string }[] = [];
         for (const imgUrl of post.images) {
+          imgCount++;
+          onProgress?.("downloading", imgCount, totalImages || 1);
           try {
             const dataUrl = await page.evaluate(async (url) => {
               const res = await fetch(url);
@@ -88,6 +96,7 @@ export async function scrapeGroup(
       console.log(`📝 Ejemplo: ${valid[0].text.substring(0, 150)}`);
     }
 
+    onProgress?.("saving", 1, 1);
     return valid;
   } finally {
     await page.close();

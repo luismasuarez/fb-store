@@ -48,6 +48,18 @@ COPY --from=playwright --chown=fbstore:fbstore /root/.cache/ms-playwright /home/
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/fbstore/.cache/ms-playwright
 
 COPY packages/scraper/package.json packages/scraper/
+COPY packages/scraper/scripts/entrypoint.sh packages/scraper/scripts/entrypoint.sh
+RUN chmod +x packages/scraper/scripts/entrypoint.sh
+
+# Install Xvfb, VNC, noVNC, curl for healthcheck
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xvfb \
+    x11vnc \
+    novnc \
+    python3-websockify \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 USER fbstore
@@ -55,4 +67,6 @@ USER fbstore
 # Profiles volume mount point
 VOLUME /app/profiles
 
-CMD ["node", "packages/scraper/dist/index.js"]
+EXPOSE 3001 6080
+
+CMD ["bash", "packages/scraper/scripts/entrypoint.sh"]
