@@ -140,12 +140,17 @@ export async function saveScrapeLog(metrics: ScrapeMetrics): Promise<void> {
 
 export async function main() {
   const profileDir = process.env.PROFILE_DIR ?? "./profiles/cuenta-1";
-  const rawGroups = process.env.FB_GROUPS ?? "[]";
   const scrollDelay = Number(process.env.SCROLL_DELAY_MS) || 4000;
 
-  const groups: GroupConfig[] = JSON.parse(rawGroups);
+  const prisma = getPrismaClient();
+  const dbGroups = await prisma.group.findMany({ where: { isActive: true } });
+  const groups: GroupConfig[] = dbGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    maxPosts: g.maxPosts,
+  }));
   if (!groups.length) {
-    console.error("❌ FB_GROUPS vacío.");
+    console.error("❌ No hay grupos activos en la base de datos.");
     process.exit(1);
   }
 

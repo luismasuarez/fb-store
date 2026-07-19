@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
 import { Worker, Queue } from "bullmq";
+import { getPrismaClient } from "@fb-store/shared";
 import { scrapeGroup, savePosts, saveScrapeLog } from "./index";
 import type { ScrapeMetrics } from "./index";
 
@@ -20,17 +21,23 @@ const connection = {
   host: process.env.REDIS_HOST || "localhost",
   port: Number(process.env.REDIS_PORT) || 6379,
 };
+const bullPrefix = process.env.BULL_PREFIX || "{fb-store}";
 
-const aiQueue = new Queue("ai-process", { connection });
+const aiQueue = new Queue("ai-process", { connection, prefix: bullPrefix });
+const prisma = getPrismaClient();
 
 const worker = new Worker<ScrapeJobData>(
   "scrape",
   async (job) => {
     const profileDir = process.env.PROFILE_DIR ?? "./profiles/cuenta-1";
-    const rawGroups = process.env.FB_GROUPS ?? "[]";
     const scrollDelay = Number(process.env.SCROLL_DELAY_MS) || 4000;
 
-    const groups: GroupConfig[] = JSON.parse(rawGroups);
+    const dbGroups = await prisma.group.findMany({ where: { isActive: true } });
+    const groups: GroupConfig[] = dbGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      maxPosts: g.maxPosts,
+    }));
     const targetGroups = job.data.groupId
       ? groups.filter((g) => g.id === job.data.groupId)
       : groups;
@@ -76,6 +83,7 @@ const worker = new Worker<ScrapeJobData>(
   {
     connection,
     concurrency: 1,
+    prefix: bullPrefix,
   },
 );
 

@@ -12,6 +12,7 @@ const connection = {
   host: process.env.REDIS_HOST || "localhost",
   port: Number(process.env.REDIS_PORT) || 6379,
 };
+const bullPrefix = process.env.BULL_PREFIX || "{fb-store}";
 
 const worker = new Worker<AiProcessJobData>(
   "ai-process",
@@ -22,6 +23,7 @@ const worker = new Worker<AiProcessJobData>(
   {
     connection,
     concurrency: 1,
+    prefix: bullPrefix,
   },
 );
 
