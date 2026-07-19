@@ -1,5 +1,2 @@
 auto_commit:
-  default: false
-  after_implement:
-    enabled: true
-    message: "[Spec 005] Implement JWT auth, group CRUD, dashboard controls"
+  default: true

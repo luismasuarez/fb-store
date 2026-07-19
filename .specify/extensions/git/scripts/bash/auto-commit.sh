@@ -16,8 +16,13 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Parse YAML with grep/awk (no Ruby dependency)
-ENABLED=$(grep -A2 "auto_commit:" "$CONFIG_FILE" | grep -E "$EVENT:" -A2 | grep "enabled:" | awk '{print $2}')
-MESSAGE=$(grep -A2 "auto_commit:" "$CONFIG_FILE" | grep -E "$EVENT:" -A2 | grep "message:" | awk -F'"' '{print $2}')
+DEFAULT_ENABLED=$(grep -A1 "auto_commit:" "$CONFIG_FILE" | grep "default:" | awk '{print $2}' || true)
+EVENT_ENABLED=$(grep -A2 "auto_commit:" "$CONFIG_FILE" | grep -E "$EVENT:" -A2 | grep "enabled:" | awk '{print $2}' || true)
+EVENT_MESSAGE=$(grep -A2 "auto_commit:" "$CONFIG_FILE" | grep -E "$EVENT:" -A2 | grep "message:" | awk -F'"' '{print $2}' || true)
+
+# Use event-specific enabled if set, otherwise fall back to default
+ENABLED="${EVENT_ENABLED:-$DEFAULT_ENABLED}"
+MESSAGE="${EVENT_MESSAGE:-}"
 
 if [ "$ENABLED" != "true" ]; then
   echo "[git-commit] auto_commit.$EVENT not enabled — skipping"
