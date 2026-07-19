@@ -130,27 +130,44 @@ export async function checkSession(name: string): Promise<SessionCheckResult> {
 
     try {
       await page.goto("https://facebook.com", { waitUntil: "domcontentloaded", timeout: 30000 });
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000);
 
       const currentUrl = page.url();
+      const isLoginUrl = currentUrl.includes("/login/") || currentUrl.includes("login");
 
-      if (currentUrl.includes("/login/") || currentUrl.includes("login")) {
-        await updateProfileMeta(name, { loginStatus: "dead", lastUsedAt: checkedAt });
-        return { alive: false, reason: "redirected-to-login", checkedAt };
-      }
-
-      const hasFeed = await page.evaluate(() => {
-        return !!(document.querySelector('[role="feed"]') || document.querySelector('[aria-label*="Feed"]'));
+      const domState = await page.evaluate(() => {
+        const hasFeed = !!(
+          document.querySelector('[role="feed"]') ||
+          document.querySelector('[aria-label*="Feed"]') ||
+          document.querySelector('[aria-label*="News Feed"]')
+        );
+        const hasLoggedInMenu = !!(
+          document.querySelector('[aria-label="Your profile"]') ||
+          document.querySelector('[aria-label="Account"]') ||
+          document.querySelector('[data-pagelet="LeftNav"]') ||
+          document.querySelector('[role="navigation"] [aria-label]')
+        );
+        const hasEmailInput = !!document.querySelector('input[name="email"]');
+        const hasPassInput = !!document.querySelector('input[name="pass"]');
+        const hasLoginButton = !!(
+          document.querySelector('button[name="login"]') ||
+          document.querySelector('[data-testid*="login"]')
+        );
+        const hasCreateAccount = !!(
+          document.querySelector('a[href*="/reg/"]') ||
+          document.querySelector('[data-testid*="signup"]')
+        );
+        return { hasFeed, hasLoggedInMenu, hasEmailInput, hasPassInput, hasLoginButton, hasCreateAccount };
       });
 
-      if (hasFeed) {
+      if (domState.hasFeed || domState.hasLoggedInMenu) {
         await updateProfileMeta(name, { loginStatus: "alive", lastUsedAt: checkedAt });
         return { alive: true, reason: "feed-visible", checkedAt };
       }
 
-      if (currentUrl.includes("facebook.com") && !currentUrl.includes("login")) {
-        await updateProfileMeta(name, { loginStatus: "alive", lastUsedAt: checkedAt });
-        return { alive: true, reason: "feed-visible", checkedAt };
+      if (isLoginUrl || domState.hasEmailInput || domState.hasPassInput || domState.hasLoginButton || domState.hasCreateAccount) {
+        await updateProfileMeta(name, { loginStatus: "dead", lastUsedAt: checkedAt });
+        return { alive: false, reason: "redirected-to-login", checkedAt };
       }
 
       await updateProfileMeta(name, { loginStatus: "dead", lastUsedAt: checkedAt });

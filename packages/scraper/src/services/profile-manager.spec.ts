@@ -59,12 +59,12 @@ describe("profile-manager", () => {
       mockReaddir.mockResolvedValue(["dir-entry"]); // profile dir exists
     });
 
-    function makeMockPage(url: string, hasFeed: boolean) {
+    function makeMockPage(url: string, evaluateResult: any) {
       return {
         goto: vi.fn().mockResolvedValue(undefined),
         waitForTimeout: vi.fn().mockResolvedValue(undefined),
         url: vi.fn().mockReturnValue(url),
-        evaluate: vi.fn().mockResolvedValue(hasFeed),
+        evaluate: vi.fn().mockResolvedValue(evaluateResult),
         close: vi.fn().mockResolvedValue(undefined),
       };
     }
@@ -77,7 +77,11 @@ describe("profile-manager", () => {
     }
 
     it("detects feed visible", async () => {
-      const mockPage = makeMockPage("https://facebook.com/", true);
+      const mockPage = makeMockPage("https://facebook.com/", {
+        hasFeed: true, hasLoggedInMenu: false,
+        hasEmailInput: false, hasPassInput: false,
+        hasLoginButton: false, hasCreateAccount: false,
+      });
       mockCreateContext.mockResolvedValue(makeMockContext(mockPage));
 
       const result = await checkSession("cuenta-1");
@@ -85,8 +89,52 @@ describe("profile-manager", () => {
       expect(result.reason).toBe("feed-visible");
     });
 
-    it("detects redirect to login", async () => {
-      const mockPage = makeMockPage("https://facebook.com/login/", false);
+    it("detects login URL redirect", async () => {
+      const mockPage = makeMockPage("https://facebook.com/login/", {
+        hasFeed: false, hasLoggedInMenu: false,
+        hasEmailInput: false, hasPassInput: false,
+        hasLoginButton: false, hasCreateAccount: false,
+      });
+      mockCreateContext.mockResolvedValue(makeMockContext(mockPage));
+
+      const result = await checkSession("cuenta-1");
+      expect(result.alive).toBe(false);
+      expect(result.reason).toBe("redirected-to-login");
+    });
+
+    it("detects login form in DOM", async () => {
+      const mockPage = makeMockPage("https://facebook.com/", {
+        hasFeed: false, hasLoggedInMenu: false,
+        hasEmailInput: true, hasPassInput: true,
+        hasLoginButton: true, hasCreateAccount: false,
+      });
+      mockCreateContext.mockResolvedValue(makeMockContext(mockPage));
+
+      const result = await checkSession("cuenta-1");
+      expect(result.alive).toBe(false);
+      expect(result.reason).toBe("redirected-to-login");
+    });
+
+    it("detects logged-in menu", async () => {
+      const mockPage = makeMockPage("https://facebook.com/", {
+        hasFeed: false, hasLoggedInMenu: true,
+        hasEmailInput: false, hasPassInput: false,
+        hasLoginButton: false, hasCreateAccount: false,
+      });
+
+      mockCreateContext.mockResolvedValue(makeMockContext(mockPage));
+
+      const result = await checkSession("cuenta-1");
+      expect(result.alive).toBe(true);
+      expect(result.reason).toBe("feed-visible");
+    });
+
+    it("detects create account page", async () => {
+      const mockPage = makeMockPage("https://facebook.com/", {
+        hasFeed: false, hasLoggedInMenu: false,
+        hasEmailInput: false, hasPassInput: false,
+        hasLoginButton: false, hasCreateAccount: true,
+      });
       mockCreateContext.mockResolvedValue(makeMockContext(mockPage));
 
       const result = await checkSession("cuenta-1");
