@@ -1,6 +1,6 @@
 # Feature Specification: Scraper como Microservicio HTTP Autónomo
 
-**Feature Branch**: `007-scraper-microservicio`
+**Feature Branch**: `006-scraper-microservicio-http`
 
 **Created**: 2026-07-19
 
