@@ -1,7 +1,6 @@
-import { spawn } from "node:child_process";
+import { chromium } from "playwright";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { detectChrome } from "../browser";
 
 export type LoginState = "idle" | "login-in-progress" | "logged-in";
 
@@ -27,54 +26,40 @@ export async function startLogin(profile: string): Promise<LoginSession> {
     }
   }
 
-  const chromePath = detectChrome();
-  if (!chromePath) {
-    throw new Error("BUSINESS:Chrome binary not found. Login requires Docker with Chrome installed.");
-  }
-
   const profileDir = join(getProfileDir(), profile);
   const vncUrl = "http://scraper:6080/vnc.html?password=fbstore";
+  const startedAt = new Date().toISOString();
 
-  const proc = spawn(chromePath, [
-    `--display=:99`,
-    `--user-data-dir=${profileDir}`,
-    `--no-sandbox`,
-    `--disable-gpu`,
-    `--window-size=1280,900`,
-    `https://facebook.com`,
-  ], {
-    stdio: "ignore",
+  const context = await chromium.launchPersistentContext(profileDir, {
+    headless: false,
+    viewport: { width: 1280, height: 900 },
+    locale: "es-VE",
+  });
+
+  const page = await context.newPage();
+  await page.goto("https://facebook.com", {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
   });
 
   const session: LoginSession = {
     profile,
     state: "login-in-progress",
-    pid: proc.pid!,
+    pid: 0,
     vncUrl,
-    startedAt: new Date().toISOString(),
+    startedAt,
   };
 
   sessions.set(profile, session);
 
-  proc.on("error", () => {
-    sessions.delete(profile);
-  });
-
-  proc.on("exit", async (code) => {
-    if (code !== 0) {
-      sessions.delete(profile);
-      return;
-    }
-    const s = sessions.get(profile);
-    if (s && s.state === "login-in-progress") {
-      sessions.set(profile, { ...s, state: "logged-in" });
-      const profileDir = join(getProfileDir(), profile);
-      await writeFile(join(profileDir, ".meta.json"), JSON.stringify({
-        createdAt: s.startedAt,
-        lastUsedAt: new Date().toISOString(),
-        loginStatus: "alive",
-      }, null, 2)).catch(() => {});
-    }
+  context.waitForEvent("close", { timeout: 0 }).then(async () => {
+    sessions.set(profile, { ...session, state: "logged-in" });
+    const now = new Date().toISOString();
+    await writeFile(join(profileDir, ".meta.json"), JSON.stringify({
+      createdAt: startedAt,
+      lastUsedAt: now,
+      loginStatus: "alive",
+    }, null, 2)).catch(() => {});
   });
 
   return session;
@@ -90,15 +75,9 @@ export async function completeLogin(profile: string): Promise<void> {
     throw new Error("BUSINESS:No active login session");
   }
 
-  try {
-    process.kill(session.pid, "SIGTERM");
-  } catch {
-    // Process may already be dead
-  }
-
   const profileDir = join(getProfileDir(), profile);
   await writeFile(join(profileDir, ".meta.json"), JSON.stringify({
-    createdAt: new Date().toISOString(),
+    createdAt: session.startedAt,
     lastUsedAt: new Date().toISOString(),
     loginStatus: "alive",
   }, null, 2));
