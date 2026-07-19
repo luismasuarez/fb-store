@@ -12,7 +12,8 @@ XVFB_PID=$!
 echo "Xvfb started (PID: $XVFB_PID)"
 
 # Start x11vnc on port 5900
-x11vnc -display :99 -forever -nopw -quiet &
+VNC_PASSWORD="${VNC_PASSWORD:-fbstore}"
+x11vnc -display :99 -forever -passwd "$VNC_PASSWORD" -quiet &
 X11VNC_PID=$!
 echo "x11vnc started (PID: $X11VNC_PID)"
 

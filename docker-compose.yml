@@ -1,25 +1,4 @@
 services:
-  full:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.full
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./profiles:/app/profiles
-    env_file:
-      - .env
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
-      - PROFILE_DIR=/app/profiles/cuenta-1
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - fb-store-net
-
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
@@ -95,6 +74,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - PROFILE_DIR=/app/profiles
+      - VNC_PASSWORD=${VNC_PASSWORD:-fbstore}
       - SCRAPER_API_KEY=${SCRAPER_API_KEY:-dev-key}
       - DATABASE_URL=postgresql://fbstore:fbstore@postgres:5432/fbstore
     volumes:

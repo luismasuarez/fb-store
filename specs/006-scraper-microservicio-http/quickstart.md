@@ -17,7 +17,8 @@ pnpm --filter @fb-store/scraper build
 
 # 2. Arrancar server (modo local, sin Xvfb)
 #    Solo para probar endpoints HTTP — el login no funcionará sin display
-PROFILE_DIR=./profiles/cuenta-1 node packages/scraper/dist/server.js
+#    PROFILE_DIR apunta al directorio PADRE que contiene las subcarpetas de cada perfil
+PROFILE_DIR=$(pwd)/profiles node packages/scraper/dist/server.js
 # → Server escuchando en http://localhost:3001
 
 # 3. Set API key for subsequent requests
@@ -113,7 +114,7 @@ curl -H "x-api-key: $API_KEY" http://localhost:3001/api/v1/profiles/cuenta-2/che
 
 ```bash
 # Build y up del scraper
-SCRAPER_API_KEY="dev-key" docker compose up --build scraper -d
+VNC_PASSWORD="fbstore" SCRAPER_API_KEY="dev-key" docker compose up --build scraper -d
 
 # Iniciar login
 curl -X POST http://localhost:3001/api/v1/login \
@@ -123,6 +124,7 @@ curl -X POST http://localhost:3001/api/v1/login \
 # → 201 {"data":{"profile":"cuenta-2","vncUrl":"http://scraper:6080/vnc.html?password=fbstore"}}
 
 # Abrir http://scraper:6080 en el navegador
+# Password: fbstore (configurable via VNC_PASSWORD env var)
 # Se ve Chrome con facebook.com cargado
 # Hacer login manual → cerrar Chrome
 
