@@ -24,3 +24,4 @@ packages/*/node_modules/
 .DS_Store
 Thumbs.db
 snapshots/
+.profiles-backup/
