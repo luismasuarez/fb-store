@@ -8,11 +8,12 @@ import {
   UseGuards,
   Req,
 } from "@nestjs/common";
+import { ZodValidationPipe } from "../../../core/pipes/zod-validation.pipe";
 import { SkipAuth } from "../../../core/guards/api-key.guard";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { AuthService } from "../application/auth.service";
-import type { LoginDto } from "./dto/login.dto";
-import type { RefreshDto } from "./dto/refresh.dto";
+import { LoginDto } from "./dto/login.dto";
+import { RefreshDto } from "./dto/refresh.dto";
 import type { FastifyRequest } from "fastify";
 
 @Controller("api/auth")
@@ -22,14 +23,14 @@ export class AuthController {
   @Post("login")
   @SkipAuth()
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto) {
+  async login(@Body(new ZodValidationPipe(LoginDto)) dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Post("refresh")
   @SkipAuth()
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() dto: RefreshDto) {
+  async refresh(@Body(new ZodValidationPipe(RefreshDto)) dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
   }
 

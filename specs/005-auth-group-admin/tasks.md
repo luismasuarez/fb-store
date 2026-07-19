@@ -132,6 +132,16 @@
 
 ---
 
+## Phase 7: Convergence
+
+**Purpose**: Close gaps found during convergence analysis on 2026-07-18
+
+- [X] T043 [CRITICAL] Add explicit `@Body(new ZodValidationPipe(...))` to auth controller (login, refresh) and groups controller (create, update) so Zod DTOs actually run validation at runtime per Constitution III, FR-016 (missing)
+- [X] T044 [HIGH] Create `apps/api/src/features/auth/application/auth.service.spec.ts` with unit tests for login validation, refresh rotation, logout revocation per T007 (missing)
+- [X] T045 [HIGH] Create `apps/api/src/features/auth/api/jwt-auth.guard.spec.ts` with integration test for missing, expired, invalid token per T008 (missing)
+- [X] T046 [HIGH] Create `apps/api/test/endpoint-protection.spec.ts` with E2E test for protected endpoints (scrape, ai-process, schedule → 401 without token; listings, health → 200 without token) per T009 (missing)
+- [X] T047 [MEDIUM] Run logout revocation verification and quickstart.md end-to-end validation scenarios per T041, T042 (missing)
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

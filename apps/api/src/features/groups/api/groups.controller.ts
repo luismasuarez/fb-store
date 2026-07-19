@@ -9,11 +9,12 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { ZodValidationPipe } from "../../../core/pipes/zod-validation.pipe";
 import { SkipAuth } from "../../../core/guards/api-key.guard";
 import { JwtAuthGuard } from "../../auth/api/jwt-auth.guard";
 import { GroupsService } from "../application/groups.service";
-import type { CreateGroupDto } from "./dto/create-group.dto";
-import type { UpdateGroupDto } from "./dto/update-group.dto";
+import { CreateGroupDto } from "./dto/create-group.dto";
+import { UpdateGroupDto } from "./dto/update-group.dto";
 
 @SkipAuth()
 @Controller("api/groups")
@@ -33,7 +34,7 @@ export class GroupsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() dto: CreateGroupDto) {
+  create(@Body(new ZodValidationPipe(CreateGroupDto)) dto: CreateGroupDto) {
     return this.groupsService.create(dto);
   }
 
@@ -45,7 +46,7 @@ export class GroupsController {
 
   @Put(":id")
   @UseGuards(JwtAuthGuard)
-  update(@Param("id") id: string, @Body() dto: UpdateGroupDto) {
+  update(@Param("id") id: string, @Body(new ZodValidationPipe(UpdateGroupDto)) dto: UpdateGroupDto) {
     return this.groupsService.update(id, dto);
   }
 
