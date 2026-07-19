@@ -3,8 +3,8 @@ import { chromium, type BrowserContext } from "playwright";
 import path from "node:path";
 import { existsSync } from "node:fs";
 
-const PROJECT_ROOT = process.env.INIT_CWD || process.cwd();
-config({ path: path.resolve(PROJECT_ROOT, ".env") });
+const PACKAGE_ROOT = path.resolve(__dirname, "..");
+config({ path: path.resolve(PACKAGE_ROOT, ".env") });
 
 export function detectChrome(): string | undefined {
   const candidates = [
@@ -22,16 +22,16 @@ export function detectChrome(): string | undefined {
 }
 
 export function getProfileDir(name: string): string {
-  const base = process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
+  const base = process.env.PROFILE_DIR || path.resolve(PACKAGE_ROOT, "profiles");
   return path.resolve(base, name);
 }
 
 export function getProfileBaseDir(): string {
-  return process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
+  return process.env.PROFILE_DIR || path.resolve(PACKAGE_ROOT, "profiles");
 }
 
 export async function createContext(profileDir: string): Promise<BrowserContext> {
-  const dir = path.resolve(PROJECT_ROOT, profileDir);
+  const dir = path.resolve(PACKAGE_ROOT, profileDir);
   const executablePath = detectChrome();
 
   return chromium.launchPersistentContext(dir, {
