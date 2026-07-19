@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockLaunchPersistentContext = vi.fn();
 const mockWriteFile = vi.fn();
+const mockExistsSync = vi.fn();
+const mockReaddirSync = vi.fn();
+const mockHomedir = vi.fn();
 
 vi.mock("playwright", () => ({
   chromium: {
@@ -11,6 +14,15 @@ vi.mock("playwright", () => ({
 
 vi.mock("node:fs/promises", () => ({
   writeFile: mockWriteFile,
+}));
+
+vi.mock("node:fs", () => ({
+  existsSync: mockExistsSync,
+  readdirSync: mockReaddirSync,
+}));
+
+vi.mock("node:os", () => ({
+  homedir: mockHomedir,
 }));
 
 const { startLogin, getStatus, completeLogin, _clearSessions } = await import("./login-manager");
@@ -27,7 +39,7 @@ describe("login-manager", () => {
   });
 
   describe("startLogin", () => {
-    it("opens Chrome with Playwright and tracks session [T049]", async () => {
+    it("opens Chrome with Playwright Chromium (default path) [T049]", async () => {
       const mockPage = { goto: vi.fn().mockResolvedValue(undefined) };
       const mockContext = {
         newPage: vi.fn().mockResolvedValue(mockPage),
@@ -56,6 +68,43 @@ describe("login-manager", () => {
       expect(session.state).toBe("login-in-progress");
       expect(session.vncUrl).toBe("http://scraper:6080/vnc.html?password=fbstore");
       expect(session.startedAt).toBeDefined();
+    });
+
+    it("falls back to system Chrome when Playwright Chromium is missing", async () => {
+      const mockPage = { goto: vi.fn().mockResolvedValue(undefined) };
+      const mockContext = {
+        newPage: vi.fn().mockResolvedValue(mockPage),
+        waitForEvent: vi.fn(() => new Promise(() => {})),
+      };
+      mockLaunchPersistentContext
+        .mockRejectedValueOnce(new Error("Executable doesn't exist"))
+        .mockResolvedValueOnce(mockContext);
+
+      mockHomedir.mockReturnValue("/home/user");
+      mockReaddirSync.mockReturnValue([]);
+      mockExistsSync.mockImplementation((p: string) => p === "/usr/bin/brave-browser");
+
+      const session = await startLogin("cuenta-1");
+
+      expect(mockLaunchPersistentContext).toHaveBeenNthCalledWith(
+        2,
+        "/mock/profiles/cuenta-1",
+        expect.objectContaining({
+          executablePath: "/usr/bin/brave-browser",
+        }),
+      );
+      expect(session.state).toBe("login-in-progress");
+    });
+
+    it("throws clear error when no Chrome is found at all", async () => {
+      mockLaunchPersistentContext.mockRejectedValue(new Error("Executable doesn't exist"));
+      mockHomedir.mockReturnValue("/home/user");
+      mockReaddirSync.mockReturnValue([]);
+      mockExistsSync.mockReturnValue(false);
+
+      await expect(startLogin("cuenta-1")).rejects.toThrow(
+        "BUSINESS:No Chromium disponible para login. Ejecuta: npx playwright install chromium",
+      );
     });
 
     it("throws BUSINESS error if login already in progress", async () => {

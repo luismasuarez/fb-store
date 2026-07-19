@@ -1,6 +1,9 @@
 import { chromium } from "playwright";
 import { writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
+import { readdirSync } from "node:fs";
 
 export type LoginState = "idle" | "login-in-progress" | "logged-in";
 
@@ -18,6 +21,35 @@ function getProfileDir(): string {
   return process.env.PROFILE_DIR || "/app/profiles";
 }
 
+function findSystemChrome(): string | undefined {
+  const candidates = [
+    process.env.CHROME_PATH,
+    "/usr/bin/brave-browser-stable",
+    "/usr/bin/brave-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/snap/bin/chromium",
+  ];
+  for (const c of candidates) {
+    if (c && existsSync(c)) return c;
+  }
+  const pwDir = join(homedir(), ".cache", "ms-playwright");
+  try {
+    const entries = readdirSync(pwDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const p = join(pwDir, entry.name, "chrome-linux64", "chrome");
+        if (existsSync(p)) return p;
+        const pAlt = join(pwDir, entry.name, "chrome-linux", "chrome");
+        if (existsSync(pAlt)) return pAlt;
+      }
+    }
+  } catch {}
+  return undefined;
+}
+
 export async function startLogin(profile: string): Promise<LoginSession> {
   if (sessions.has(profile)) {
     const existing = sessions.get(profile)!;
@@ -30,11 +62,25 @@ export async function startLogin(profile: string): Promise<LoginSession> {
   const vncUrl = "http://scraper:6080/vnc.html?password=fbstore";
   const startedAt = new Date().toISOString();
 
-  const context = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-    locale: "es-VE",
-  });
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(profileDir, {
+      headless: false,
+      viewport: { width: 1280, height: 900 },
+      locale: "es-VE",
+    });
+  } catch {
+    const systemChrome = findSystemChrome();
+    if (!systemChrome) {
+      throw new Error("BUSINESS:No Chromium disponible para login. Ejecuta: npx playwright install chromium");
+    }
+    context = await chromium.launchPersistentContext(profileDir, {
+      executablePath: systemChrome,
+      headless: false,
+      viewport: { width: 1280, height: 900 },
+      locale: "es-VE",
+    });
+  }
 
   const page = await context.newPage();
   await page.goto("https://facebook.com", {
