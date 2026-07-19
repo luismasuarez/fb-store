@@ -121,6 +121,42 @@
 | **Alternatives considered** | Prompt al operador para que ingrese la key (UX pobre). Cookie con la key (inseguro). Proxy de requests via backend (complejidad extra). |
 | **References** | Template string `__SCRAPER_API_KEY__` en `dashboard.html` reemplazado en `server.ts:41`. |
 
+### D15. Login via Playwright vs Spawn (Implementación)
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | Usar `chromium.launchPersistentContext` de Playwright en vez de `child_process.spawn` para el login interactivo. Fallback a Chrome del sistema si Playwright Chromium no está instalado. |
+| **Rationale** | El `login.ts` original usaba Playwright y funcionaba correctamente. Al reemplazarlo por `spawn` en `login-manager.ts`, los perfiles no se guardaban correctamente porque `spawn` no maneja el ciclo de vida del perfil de Chrome (creación de directorios, persistencia de cookies). Playwright lo hace automáticamente. Además, `spawn` requería `detectChrome()` que no encontraba Brave. Playwright con `executablePath` fallback resuelve ambos problemas. |
+| **Alternatives considered** | Instalar Playwright Chromium (requiere `npx playwright install chromium`, paso extra para el usuario). Usar siempre el Chrome del sistema (inconsistente entre Docker y local). |
+| **References** | `login-manager.ts:startLogin()` — try/catch con fallback a `findSystemChrome()`. |
+
+### D16. Detección de Sesión vía DOM (Implementación)
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | `checkSession()` usa selectores DOM múltiples para determinar si el perfil está logueado en Facebook: feed (`[role="feed"]`), menú de usuario (`[aria-label="Your profile"]`), formulario de login (`input[name="email"]` + `button[name="login"]`), registro (`a[href*="/reg/"]`). |
+| **Rationale** | La implementación original solo verificaba la URL: si contenía "facebook.com" sin "/login/" → alive. Esto causaba falsos positivos en perfiles vacíos porque la URL de inicio sin login también contiene "facebook.com". La detección vía DOM es más precisa porque busca elementos específicos de la UI de Facebook. |
+| **Alternatives considered** | Verificar solo cookies (no verifica que la sesión siga siendo válida en el servidor). URL checking (falsos positivos). |
+| **References** | `profile-manager.ts:checkSession()`. Bug reportado por el usuario: perfil vacío aparecía como "alive". |
+
+### D17. Configuración de Producción para el Container
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | `PROFILE_DIR` y `VNC_PASSWORD` como env vars explícitas en docker-compose. VNC con password en vez de `-nopw`. Servicio `full` eliminado. |
+| **Rationale** | `PROFILE_DIR=/app/profiles` explicita la ruta de perfiles eliminando ambigüedad. `VNC_PASSWORD` permite proteger el acceso VNC (antes era `-nopw`, cualquiera que alcanzara el puerto 6080 veía el escritorio). El servicio `full` tenía semántica obsoleta de `PROFILE_DIR` (apuntaba a un perfil específico, no al directorio padre). |
+| **Alternatives considered** | Dejar VNC sin password (inseguro en producción). Mantener full service actualizado (no aporta valor, scraper es standalone). |
+| **References** | `docker-compose.yml`, `entrypoint.sh`, `quickstart.md`. |
+
+### D18. Login automático al cerrar Chrome (Implementación)
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | `startLogin()` escucha `context.waitForEvent("close")` y al detectar que el usuario cerró Chrome, persiste `.meta.json` con `loginStatus: "alive"` automáticamente. |
+| **Rationale** | Originalmente `proc.on("exit")` persistía el meta, pero solo funcionaba con `spawn`. Con Playwright, `waitForEvent("close")` es el equivalente. Chrome guarda las cookies al cerrar, pero sin esta persistencia el perfil quedaba como "unknown" hasta que el usuario ejecutara `checkSession` manualmente. |
+| **Alternatives considered** | Requerir `completeLogin()` manual (POST /login/:profile/complete) — UX pobre, el usuario no sabía que tenía que hacerlo. |
+| **References** | `login-manager.ts:101-109`. Reportado por el usuario durante testing. |
+
 ### D8. Manejo de Chrome Lock Files
 
 | Aspect | Detail |
