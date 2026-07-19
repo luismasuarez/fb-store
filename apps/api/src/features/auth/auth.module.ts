@@ -5,7 +5,6 @@ import { AuthController } from "./api/auth.controller";
 import { AuthService } from "./application/auth.service";
 import { TokenService } from "./application/token.service";
 import { AuthSessionRepository } from "./infrastructure/auth-session.repository";
-import { JwtStrategy } from "./strategies/jwt.strategy";
 import { RefreshJwtStrategy } from "./strategies/refresh-jwt.strategy";
 import { AppConfigModule } from "../../infrastructure/config/app-config.module";
 import { AppConfigService } from "../../infrastructure/config/app-config.service";
@@ -15,6 +14,7 @@ import { PrismaModule } from "../../infrastructure/database/prisma/prisma.module
   imports: [
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
+      global: true,
       imports: [AppConfigModule],
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => ({
@@ -31,9 +31,8 @@ import { PrismaModule } from "../../infrastructure/database/prisma/prisma.module
     AuthService,
     TokenService,
     AuthSessionRepository,
-    JwtStrategy,
     RefreshJwtStrategy,
   ],
-  exports: [JwtModule, JwtStrategy],
+  exports: [JwtModule],
 })
 export class AuthModule {}

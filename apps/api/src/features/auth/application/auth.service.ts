@@ -24,8 +24,8 @@ export class AuthService {
     private readonly sessionRepo: AuthSessionRepository,
     private readonly prisma: PrismaService,
   ) {
-    this.accessExpiresIn = this.config.getNumber("JWT_ACCESS_EXPIRES_IN", 86400);
-    this.refreshExpiresIn = this.config.getNumber("JWT_REFRESH_EXPIRES_IN", 604800);
+    this.accessExpiresIn = this.config.getNumber("JWT_ACCESS_EXPIRES_IN", 86400) ?? 86400;
+    this.refreshExpiresIn = this.config.getNumber("JWT_REFRESH_EXPIRES_IN", 604800) ?? 604800;
   }
 
   async login(dto: LoginDto): Promise<{

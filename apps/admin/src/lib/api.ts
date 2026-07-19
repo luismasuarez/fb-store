@@ -21,53 +21,43 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auth error interceptor — on 401, try to refresh
-let isRefreshing = false;
-let pendingRefresh: Promise<boolean> | null = null;
-
+// Auth error interceptor — on 401, try to refresh once
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status !== 401) return Promise.reject(error);
-    if (isRefreshing) {
-      await pendingRefresh;
-      return api.request(error.config);
-    }
-    isRefreshing = true;
-    pendingRefresh = (async () => {
-      try {
-        const raw = localStorage.getItem("fb-store-auth");
-        if (!raw) return false;
-        const { refreshToken } = JSON.parse(raw);
-        if (!refreshToken) return false;
+    if (error.config?._retryCount) return Promise.reject(error);
 
-        const res = await fetch("/api/auth/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-        if (!res.ok) {
-          localStorage.removeItem("fb-store-auth");
-          window.location.href = "/login";
-          return false;
-        }
-        const data = await res.json();
-        localStorage.setItem("fb-store-auth", JSON.stringify(data));
-        return true;
-      } catch {
+    error.config._retryCount = 1;
+
+    try {
+      const raw = localStorage.getItem("fb-store-auth");
+      if (!raw) return Promise.reject(error);
+
+      const parsed = JSON.parse(raw);
+      if (!parsed.refreshToken) return Promise.reject(error);
+
+      const res = await fetch("/api/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: parsed.refreshToken }),
+      });
+
+      if (!res.ok) {
         localStorage.removeItem("fb-store-auth");
         window.location.href = "/login";
-        return false;
-      } finally {
-        isRefreshing = false;
-        pendingRefresh = null;
+        return Promise.reject(error);
       }
-    })();
-    const ok = await pendingRefresh;
-    if (ok) {
+
+      const data = await res.json();
+      localStorage.setItem("fb-store-auth", JSON.stringify(data));
+      error.config.headers.Authorization = `Bearer ${data.accessToken}`;
       return api.request(error.config);
+    } catch {
+      localStorage.removeItem("fb-store-auth");
+      window.location.href = "/login";
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
   },
 );
 
