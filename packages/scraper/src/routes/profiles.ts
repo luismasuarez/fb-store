@@ -8,12 +8,12 @@ type Variables = { requestId: string };
 
 const profilesRoute = new Hono<{ Variables: Variables }>();
 
-profilesRoute.get("/", async (c: Context<{ Variables: Variables }>) => {
+profilesRoute.get("/profiles", async (c: Context<{ Variables: Variables }>) => {
   const profiles = await listProfiles();
   return c.json({ data: { profiles } });
 });
 
-profilesRoute.post("/", async (c: Context<{ Variables: Variables }>) => {
+profilesRoute.post("/profiles", async (c: Context<{ Variables: Variables }>) => {
   const body = await c.req.json();
   const parsed = CreateProfileRequestSchema.safeParse(body);
 
@@ -38,7 +38,7 @@ profilesRoute.post("/", async (c: Context<{ Variables: Variables }>) => {
   }, 201);
 });
 
-profilesRoute.delete("/:name", async (c: Context<{ Variables: Variables }>) => {
+profilesRoute.delete("/profiles/:name", async (c: Context<{ Variables: Variables }>) => {
   const name = c.req.param("name")!;
 
   try {
@@ -54,7 +54,7 @@ profilesRoute.delete("/:name", async (c: Context<{ Variables: Variables }>) => {
   }
 });
 
-profilesRoute.get("/:name/check", async (c: Context<{ Variables: Variables }>) => {
+profilesRoute.get("/profiles/:name/check", async (c: Context<{ Variables: Variables }>) => {
   const name = c.req.param("name")!;
   const result = await checkSession(name);
   return c.json({ data: { profile: name, ...result } });

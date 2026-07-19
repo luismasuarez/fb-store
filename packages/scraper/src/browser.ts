@@ -22,7 +22,12 @@ function detectChrome(): string | undefined {
 }
 
 export function getProfileDir(name: string): string {
-  return path.resolve(PROJECT_ROOT, "profiles", name);
+  const base = process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
+  return path.resolve(base, name);
+}
+
+export function getProfileBaseDir(): string {
+  return process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
 }
 
 export async function createContext(profileDir: string): Promise<BrowserContext> {

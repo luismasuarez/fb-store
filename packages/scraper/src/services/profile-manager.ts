@@ -1,6 +1,6 @@
 import { readdir, mkdir, writeFile, readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { createContext } from "../browser";
+import { join, resolve } from "node:path";
+import { createContext, getProfileBaseDir } from "../browser";
 
 export interface ProfileMeta {
   createdAt: string;
@@ -22,12 +22,17 @@ export interface SessionCheckResult {
 }
 
 function getProfileDirFromEnv(): string {
-  return process.env.PROFILE_DIR || "/app/profiles";
+  return getProfileBaseDir();
 }
 
 export async function listProfiles(): Promise<Profile[]> {
   const profileDir = getProfileDirFromEnv();
-  const entries = await readdir(profileDir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(profileDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
   const profiles: Profile[] = [];
 
   for (const entry of entries) {
@@ -95,6 +100,19 @@ export async function deleteProfile(name: string): Promise<void> {
   await rm(dir, { recursive: true, force: true });
 }
 
+async function updateProfileMeta(name: string, updates: Partial<ProfileMeta>): Promise<void> {
+  const profileDir = getProfileDirFromEnv();
+  const metaPath = join(profileDir, name, ".meta.json");
+  let meta: ProfileMeta;
+  try {
+    const raw = await readFile(metaPath, "utf-8");
+    meta = { ...JSON.parse(raw), ...updates };
+  } catch {
+    meta = { createdAt: new Date().toISOString(), ...updates } as ProfileMeta;
+  }
+  await writeFile(metaPath, JSON.stringify(meta, null, 2));
+}
+
 export async function checkSession(name: string): Promise<SessionCheckResult> {
   const checkedAt = new Date().toISOString();
   const profileDir = getProfileDirFromEnv();
@@ -117,6 +135,7 @@ export async function checkSession(name: string): Promise<SessionCheckResult> {
       const currentUrl = page.url();
 
       if (currentUrl.includes("/login/") || currentUrl.includes("login")) {
+        await updateProfileMeta(name, { loginStatus: "dead", lastUsedAt: checkedAt });
         return { alive: false, reason: "redirected-to-login", checkedAt };
       }
 
@@ -125,13 +144,16 @@ export async function checkSession(name: string): Promise<SessionCheckResult> {
       });
 
       if (hasFeed) {
+        await updateProfileMeta(name, { loginStatus: "alive", lastUsedAt: checkedAt });
         return { alive: true, reason: "feed-visible", checkedAt };
       }
 
       if (currentUrl.includes("facebook.com") && !currentUrl.includes("login")) {
+        await updateProfileMeta(name, { loginStatus: "alive", lastUsedAt: checkedAt });
         return { alive: true, reason: "feed-visible", checkedAt };
       }
 
+      await updateProfileMeta(name, { loginStatus: "dead", lastUsedAt: checkedAt });
       return { alive: false, reason: "redirected-to-login", checkedAt };
     } finally {
       await page.close();

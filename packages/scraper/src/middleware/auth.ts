@@ -6,7 +6,7 @@ if (!SCRAPER_API_KEY) {
   throw new Error("SCRAPER_API_KEY environment variable is required");
 }
 
-const PUBLIC_PATHS = new Set(["/health", "/ready"]);
+const PUBLIC_PATHS = new Set(["/health", "/ready", "/api/v1/health", "/api/v1/ready"]);
 
 export async function authMiddleware(
   c: Context<{ Variables: { requestId: string } }>,

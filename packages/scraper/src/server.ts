@@ -42,11 +42,14 @@ app.get("/dashboard", async (c) => {
   return c.html(html);
 });
 
+app.get("/", (c) => c.redirect("/dashboard"));
+
 app.use("/static/*", serveStatic({ root: staticDir }));
 
 app.use("/api/*", authMiddleware);
 
 app.route("/", healthRoute);
+app.route("/api/v1", healthRoute);
 app.route("/api/v1", scrapeRoute);
 app.route("/api/v1", profilesRoute);
 app.route("/api/v1", loginRoute);
