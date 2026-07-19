@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchGroups,
   createGroup,
   updateGroup,
   deleteGroup,
+  triggerScrape,
+  getJobStatus,
 } from "../lib/api";
 import type { Group } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -18,12 +20,14 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { GroupForm } from "../components/groups/group-form";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
 
 export function GroupsPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [scrapingGroupId, setScrapingGroupId] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["groups"],
@@ -77,6 +81,44 @@ export function GroupsPage() {
   function handleDelete(group: Group) {
     if (window.confirm(`¿Eliminar el grupo "${group.name}"?`)) {
       deleteMutation.mutate(group.id);
+    }
+  }
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  async function handleScrapeGroup(group: Group) {
+    setScrapingGroupId(group.id);
+    try {
+      const { jobId } = await triggerScrape(group.id, group.maxPosts);
+
+      await new Promise<void>((resolve, reject) => {
+        pollingRef.current = setInterval(async () => {
+          try {
+            const status = await getJobStatus(jobId);
+            if (status?.status === "completed" || status?.status === "complete") {
+              stopPolling();
+              queryClient.invalidateQueries({ queryKey: ["groups"] });
+              setScrapingGroupId(null);
+              resolve();
+            } else if (status?.status === "failed" || status?.status === "error") {
+              stopPolling();
+              setScrapingGroupId(null);
+              reject(new Error(status.failedReason ?? "Scrape failed"));
+            }
+          } catch {
+            stopPolling();
+            setScrapingGroupId(null);
+            reject(new Error("Error checking scrape status"));
+          }
+        }, 2000);
+      });
+    } catch {
+      setScrapingGroupId(null);
     }
   }
 
@@ -140,6 +182,18 @@ export function GroupsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleScrapeGroup(group)}
+                        disabled={scrapingGroupId === group.id || !group.isActive}
+                      >
+                        {scrapingGroupId === group.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Scrapear"
+                        )}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

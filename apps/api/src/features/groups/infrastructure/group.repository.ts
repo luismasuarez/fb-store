@@ -58,6 +58,10 @@ export class GroupRepository {
     });
   }
 
+  async findActive(): Promise<Group[]> {
+    return this.prisma.client.group.findMany({ where: { isActive: true } });
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.client.group.delete({ where: { id } });
   }

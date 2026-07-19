@@ -75,3 +75,15 @@
 | **Rationale** | Es mejor fallar ruidosamente que reportar un éxito falso. Los posts extraídos existen en el objeto `JobState` en memoria (aunque no persistidos), y los logs del servidor tienen la traza. El operador puede reintentar. |
 | **Alternatives considered** | Best-effort (notificar complete aunque DB falle — el operador cree que los posts están guardados cuando no es así). |
 | **References** | Análisis de subagente persistence-gap. Error handler en `packages/scraper/src/routes/scrape.ts:40-48`. |
+
+## Implementation Discoveries
+
+### Build Issues Discovered During Phase 7 Polish
+
+1. **No test script in `apps/admin`** — T044 skipped. The admin app has no `test` script in `package.json` and no test dependencies (`vitest`, `@testing-library/react`) installed, even though spec files were created for T031/T032 as TDD artifacts. To run admin tests in the future, `vitest` and `@testing-library/react` need to be added as devDependencies and a test script needs to be configured.
+
+2. **Spec files broke build** — `apps/admin/tsconfig.app.json` had `"include": ["src"]` without excluding `*.spec.*` files. The scraper package already excludes them (`"exclude": ["**/*.spec.ts", "**/*.test.ts"]`). Fixed by adding the same exclude patterns to `tsconfig.app.json`.
+
+3. **`mutate()` without args caused TS error** — `apps/admin/src/components/dashboard/scrape-controls.tsx:28` called `mutate()` with no arguments, but the `useMutation` type from `@tanstack/react-query` does not allow calling `mutate()` without an argument even when `mutationFn` accepts optional args. Fixed by passing `mutate({})`.
+
+### No other significant deviations from plan. All test suites pass, full build passes after minor fixes.

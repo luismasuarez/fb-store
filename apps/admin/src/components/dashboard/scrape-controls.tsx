@@ -1,14 +1,33 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useScrape, useAiProcess } from "../../hooks/use-scrape";
+import { fetchGroups } from "../../lib/api";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 export function ScrapeControls() {
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const { mutate, isPending, isError, error, sse } = useScrape();
   const aiMutation = useAiProcess();
 
+  const { data: groupsData } = useQuery({
+    queryKey: ["groups"],
+    queryFn: () => fetchGroups(1, 100),
+  });
+
+  const activeGroups = groupsData?.data.filter((g) => g.isActive) ?? [];
+
   const isRunning = isPending || sse.status === "running";
   const progressPct = sse.total > 0 ? Math.round((sse.current / sse.total) * 100) : 0;
+
+  function handleScrape() {
+    if (selectedGroupId) {
+      mutate({ groupId: selectedGroupId });
+    } else {
+      mutate({});
+    }
+  }
 
   return (
     <Card>
@@ -19,8 +38,25 @@ export function ScrapeControls() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {activeGroups.length > 0 && (
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+            disabled={isRunning}
+            aria-label="Seleccionar grupo"
+          >
+            <option value="">Todos los grupos</option>
+            {activeGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <div className="flex flex-wrap gap-3">
-          <Button onClick={() => mutate()} disabled={isRunning}>
+          <Button onClick={handleScrape} disabled={isRunning}>
             {isRunning ? "Scrapeando..." : "Scrapear ahora"}
           </Button>
 

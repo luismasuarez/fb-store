@@ -1,5 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AppConfigService } from "../../../infrastructure/config/app-config.service";
+import { AiProcessorService } from "../../ai-processor/application/ai-processor.service";
+import { GroupsService } from "../../groups/application/groups.service";
 import { ScrapeService } from "./scrape.service";
 
 function mockFetch(
@@ -17,6 +19,8 @@ describe("ScrapeService", () => {
   let service: ScrapeService;
   let config: { getRequiredString: ReturnType<typeof vi.fn> };
   let fetchSpy: ReturnType<typeof vi.fn>;
+  let aiProcessorService: { triggerProcessing: ReturnType<typeof vi.fn> };
+  let groupsService: { findActive: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     config = {
@@ -27,6 +31,8 @@ describe("ScrapeService", () => {
       }),
     };
 
+    aiProcessorService = { triggerProcessing: vi.fn() };
+    groupsService = { findActive: vi.fn() };
     fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -34,6 +40,8 @@ describe("ScrapeService", () => {
       providers: [
         ScrapeService,
         { provide: AppConfigService, useValue: config },
+        { provide: AiProcessorService, useValue: aiProcessorService },
+        { provide: GroupsService, useValue: groupsService },
       ],
     }).compile();
 
@@ -148,6 +156,73 @@ describe("ScrapeService", () => {
 
       expect(result.status).toBe("waiting");
       expect(result.timestamp).toBeNull();
+    });
+  });
+
+  describe("waitForJob", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("T009: polls every 5s until completed", async () => {
+      vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
+
+      const jobStatusSpy = vi.spyOn(service as any, "getJobStatus");
+      jobStatusSpy
+        .mockResolvedValueOnce({ status: "pending" })
+        .mockResolvedValueOnce({ status: "running" })
+        .mockResolvedValueOnce({ status: "completed", result: { metrics: { postsNew: 5 } } });
+
+      const waitPromise = (service as any).waitForJob("job-123", 30000);
+
+      await vi.advanceTimersByTimeAsync(10000);
+
+      const result = await waitPromise;
+
+      expect(result.status).toBe("completed");
+      expect(jobStatusSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it("T010: times out after configured timeout", async () => {
+      vi.useFakeTimers({ toFake: ["Date", "setTimeout"] });
+
+      const jobStatusSpy = vi.spyOn(service as any, "getJobStatus");
+      jobStatusSpy.mockResolvedValue({ status: "pending" });
+
+      const waitPromise = (service as any).waitForJob("job-123", 10000);
+      waitPromise.catch(() => {}); // Suppress unhandled rejection during fake timer advance
+
+      await vi.advanceTimersByTimeAsync(10000);
+
+      await expect(waitPromise).rejects.toThrow("timed out after 10000ms");
+    });
+  });
+
+  describe("chainAfterScrape", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("T011: calls triggerProcessing when postsNew > 0", async () => {
+      vi.spyOn(service as any, "getJobStatus").mockResolvedValue({
+        status: "completed",
+        result: { metrics: { postsNew: 5 } },
+      });
+
+      await (service as any).chainAfterScrape("job-123");
+
+      expect(aiProcessorService.triggerProcessing).toHaveBeenCalled();
+    });
+
+    it("T012: skips AI when postsNew === 0", async () => {
+      vi.spyOn(service as any, "getJobStatus").mockResolvedValue({
+        status: "completed",
+        result: { metrics: { postsNew: 0 } },
+      });
+
+      await (service as any).chainAfterScrape("job-123");
+
+      expect(aiProcessorService.triggerProcessing).not.toHaveBeenCalled();
     });
   });
 });

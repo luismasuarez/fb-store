@@ -1,5 +1,5 @@
 import { getPrismaClient } from "@fb-store/shared";
-import { scrapeGroup, type ScrapeMetrics } from "../index";
+import { scrapeGroup, savePosts, saveScrapeLog, type ScrapeMetrics } from "../index";
 import type { RawPost } from "../extractor";
 import { getProfileDir } from "../browser";
 import { updateJob, notifyClients } from "./job-tracker";
@@ -73,12 +73,21 @@ export async function runScrape(
     const groupId = group.id;
     const postsLen = posts.length;
 
+    const postsNew = await savePosts(posts, groupId);
+
+    await saveScrapeLog({
+      groupId,
+      postsFound: postsLen,
+      postsNew,
+      durationMs,
+    });
+
     const result = {
       posts,
       metrics: {
         groupId,
         postsFound: postsLen,
-        postsNew: postsLen,
+        postsNew,
         durationMs,
       },
     };

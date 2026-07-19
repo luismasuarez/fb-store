@@ -20,8 +20,8 @@
 
 **Purpose**: Install new dependencies and ensure foundational module exports
 
-- [ ] T001 Install `@nestjs/schedule` in `apps/api/package.json` (needed by scheduler rewrite in US2)
-- [ ] T002 [P] Add `exports: [AiProcessorService]` to `apps/api/src/features/ai-processor/ai-processor.module.ts`
+- [X] T001 Install `@nestjs/schedule` in `apps/api/package.json` (needed by scheduler rewrite in US2)
+- [X] T002 [P] Add `exports: [AiProcessorService]` to `apps/api/src/features/ai-processor/ai-processor.module.ts`
 
 **Checkpoint**: Dependency installed. AiProcessorService exportable from its module.
 
@@ -33,9 +33,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Add `findActive()` method to `apps/api/src/features/groups/infrastructure/group.repository.ts` (query `where: { isActive: true }`)
-- [ ] T004 Add `findActive()` public method to `apps/api/src/features/groups/application/groups.service.ts` (delegates to repository)
-- [ ] T005 Import `AiProcessorModule` in `apps/api/src/features/scrape/scrape.module.ts` (needed by US1 for auto-chain)
+- [X] T003 Add `findActive()` method to `apps/api/src/features/groups/infrastructure/group.repository.ts` (query `where: { isActive: true }`)
+- [X] T004 Add `findActive()` public method to `apps/api/src/features/groups/application/groups.service.ts` (delegates to repository)
+- [X] T005 Import `AiProcessorModule` in `apps/api/src/features/scrape/scrape.module.ts` (needed by US1 for auto-chain)
 
 **Checkpoint**: Foundation ready — US1, US2, US3, US4 can now proceed
 
@@ -49,22 +49,22 @@
 
 ### Tests for User Story 1 ⚠️ TDD — Write FIRST, ensure they FAIL
 
-- [ ] T006 [P] [US1] Test for `scrape-runner.ts` verifies `savePosts` and `saveScrapeLog` are called with correct args in `packages/scraper/src/services/scrape-runner.spec.ts`
-- [ ] T007 [P] [US1] Test for `scrape-runner.ts` verifies `savePosts` failure propagates as error (no SSE "complete") in `packages/scraper/src/services/scrape-runner.spec.ts`
-- [ ] T008 [P] [US1] Test for `scrape-runner.ts` verifies `metrics.postsNew` equals `savePosts` return value in `packages/scraper/src/services/scrape-runner.spec.ts`
-- [ ] T009 [P] [US1] Test for `scrape.service.ts` verifies `waitForJob` polls every 5s until "completed" in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
-- [ ] T010 [P] [US1] Test for `scrape.service.ts` verifies `waitForJob` times out after 120s in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
-- [ ] T011 [P] [US1] Test for `scrape.service.ts` verifies `chainAfterScrape` calls `AiProcessorService.triggerProcessing` when postsNew > 0 in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
-- [ ] T012 [P] [US1] Test for `scrape.service.ts` verifies `chainAfterScrape` skips AI when postsNew === 0 in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
+- [X] T006 [P] [US1] Test for `scrape-runner.ts` verifies `savePosts` and `saveScrapeLog` are called with correct args in `packages/scraper/src/services/scrape-runner.spec.ts`
+- [X] T007 [P] [US1] Test for `scrape-runner.ts` verifies `savePosts` failure propagates as error (no SSE "complete") in `packages/scraper/src/services/scrape-runner.spec.ts`
+- [X] T008 [P] [US1] Test for `scrape-runner.ts` verifies `metrics.postsNew` equals `savePosts` return value in `packages/scraper/src/services/scrape-runner.spec.ts`
+- [X] T009 [P] [US1] Test for `scrape.service.ts` verifies `waitForJob` polls every 5s until "completed" in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
+- [X] T010 [P] [US1] Test for `scrape.service.ts` verifies `waitForJob` times out after 120s in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
+- [X] T011 [P] [US1] Test for `scrape.service.ts` verifies `chainAfterScrape` calls `AiProcessorService.triggerProcessing` when postsNew > 0 in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
+- [X] T012 [P] [US1] Test for `scrape.service.ts` verifies `chainAfterScrape` skips AI when postsNew === 0 in `apps/api/src/features/scrape/application/scrape.service.spec.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Modify `packages/scraper/src/services/scrape-runner.ts`: add `savePosts` and `saveScrapeLog` calls after `scrapeGroup()` returns, before `notifyClients("complete")` — update import from `"../index"` to include both functions, replace `postsNew: postsLen` with actual `savePosts` return
-- [ ] T014 [US1] Modify `notifyClients` ordering in `packages/scraper/src/services/scrape-runner.ts`: ensure SSE "complete" fires only after persistence succeeds (move persistence before `notifyClients`)
-- [ ] T015 [US1] Add `waitForJob()` private method to `apps/api/src/features/scrape/application/scrape.service.ts` — polls `GET /scrape/:jobId` every 5s, timeout 120s, returns job state
-- [ ] T016 [US1] Add `chainAfterScrape()` private method to `apps/api/src/features/scrape/application/scrape.service.ts` — calls `waitForJob`, checks `postsNew > 0`, calls `AiProcessorService.triggerProcessing()`
-- [ ] T017 [US1] Modify `triggerScrape()` in `apps/api/src/features/scrape/application/scrape.service.ts` to invoke `chainAfterScrape()` as background task (Promise without await, catch errors)
-- [ ] T018 [US1] Inject `AiProcessorService` into `ScrapeService` constructor in `apps/api/src/features/scrape/application/scrape.service.ts`
+- [X] T013 [US1] Modify `packages/scraper/src/services/scrape-runner.ts`: add `savePosts` and `saveScrapeLog` calls after `scrapeGroup()` returns, before `notifyClients("complete")` — update import from `"../index"` to include both functions, replace `postsNew: postsLen` with actual `savePosts` return
+- [X] T014 [US1] Modify `notifyClients` ordering in `packages/scraper/src/services/scrape-runner.ts`: ensure SSE "complete" fires only after persistence succeeds (move persistence before `notifyClients`)
+- [X] T015 [US1] Add `waitForJob()` private method to `apps/api/src/features/scrape/application/scrape.service.ts` — polls `GET /scrape/:jobId` every 5s, timeout 120s, returns job state
+- [X] T016 [US1] Add `chainAfterScrape()` private method to `apps/api/src/features/scrape/application/scrape.service.ts` — calls `waitForJob`, checks `postsNew > 0`, calls `AiProcessorService.triggerProcessing()`
+- [X] T017 [US1] Modify `triggerScrape()` in `apps/api/src/features/scrape/application/scrape.service.ts` to invoke `chainAfterScrape()` as background task (Promise without await, catch errors)
+- [X] T018 [US1] Inject `AiProcessorService` into `ScrapeService` constructor in `apps/api/src/features/scrape/application/scrape.service.ts`
 
 **Checkpoint**: Scrape → persistencia → AI chain funciona automáticamente. Sin scheduler, pero un POST /api/scrape manual completa el pipeline completo.
 
@@ -78,23 +78,23 @@
 
 ### Tests for User Story 2 ⚠️ TDD
 
-- [ ] T019 [P] [US2] Test for `scheduler.service.ts` verifies `executeScrapeCycle` fetches active groups from `GroupsService.findActive()` in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T020 [P] [US2] Test for `scheduler.service.ts` verifies sequential HTTP calls to scraper with `wait=true` for each group in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T021 [P] [US2] Test for `scheduler.service.ts` verifies AI is enqueued after successful group scrape in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T022 [P] [US2] Test for `scheduler.service.ts` verifies error in one group does not stop iteration in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T023 [P] [US2] Test for `scheduler.service.ts` verifies cycle is skipped if previous still running in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T024 [P] [US2] Test for `scheduler.service.ts` verifies timeout (300s) per group in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
-- [ ] T025 [P] [US2] Test for `scheduler.service.ts` verifies disabled state skips cycle in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T019 [P] [US2] Test for `scheduler.service.ts` verifies `executeScrapeCycle` fetches active groups from `GroupsService.findActive()` in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T020 [P] [US2] Test for `scheduler.service.ts` verifies sequential HTTP calls to scraper with `wait=true` for each group in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T021 [P] [US2] Test for `scheduler.service.ts` verifies AI is enqueued after successful group scrape in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T022 [P] [US2] Test for `scheduler.service.ts` verifies error in one group does not stop iteration in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T023 [P] [US2] Test for `scheduler.service.ts` verifies cycle is skipped if previous still running in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T024 [P] [US2] Test for `scheduler.service.ts` verifies timeout (300s) per group in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
+- [X] T025 [P] [US2] Test for `scheduler.service.ts` verifies disabled state skips cycle in `apps/api/src/features/scheduler/application/scheduler.service.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Rewrite `apps/api/src/features/scheduler/scheduler.module.ts`: remove `BullModule.registerQueue({ name: "scrape" })`, add `ScheduleModule.forRoot()` + `AiProcessorModule` to imports
-- [ ] T027 [US2] Rewrite `apps/api/src/features/scheduler/application/scheduler.service.ts`: replace `@InjectQueue("scrape")` with `SchedulerRegistry` from `@nestjs/schedule`, inject `ConfigService` for `SCRAPER_URL` and `SCRAPER_API_KEY`, inject `GroupsService` for `findActive()`, inject `AiProcessorService` for AI chaining
-- [ ] T028 [US2] Implement `registerSchedule()` in scheduler: delete existing cron if any, build cron expression from config, add dynamic CronJob via `SchedulerRegistry.addCronJob()`
-- [ ] T029 [US2] Implement `executeScrapeCycle()` in scheduler: check `isRunning` flag, fetch active groups, iterate with `POST /api/v1/scrape { groupId, maxPosts, wait: true }` and `AbortController` timeout of 300s, enqueue AI after each success
-- [ ] T030 [US2] Preserve existing `updateSchedule()` and `getSchedule()` API in scheduler — reject intervals < 30 min, validate hourStart/hourEnd, re-register cron on changes
+- [X] T026 [US2] Rewrite `apps/api/src/features/scheduler/scheduler.module.ts`: remove `BullModule.registerQueue({ name: "scrape" })`, add `ScheduleModule.forRoot()` + `AiProcessorModule` to imports
+- [X] T027 [US2] Rewrite `apps/api/src/features/scheduler/application/scheduler.service.ts`: replace `@InjectQueue("scrape")` with `SchedulerRegistry` from `@nestjs/schedule`, inject `ConfigService` for `SCRAPER_URL` and `SCRAPER_API_KEY`, inject `GroupsService` for `findActive()`, inject `AiProcessorService` for AI chaining
+- [X] T028 [US2] Implement `registerSchedule()` in scheduler: delete existing cron if any, build cron expression from config, add dynamic CronJob via `SchedulerRegistry.addCronJob()`
+- [X] T029 [US2] Implement `executeScrapeCycle()` in scheduler: check `isRunning` flag, fetch active groups, iterate with `POST /api/v1/scrape { groupId, maxPosts, wait: true }` and `AbortController` timeout of 300s, enqueue AI after each success
+- [X] T030 [US2] Preserve existing `updateSchedule()` and `getSchedule()` API in scheduler — reject intervals < 30 min, validate hourStart/hourEnd, re-register cron on changes
 
-**Checkpoint**: Scheduler funcional. Scrapes automáticos cada N minutos respetando ventana horaria.
+**Checkpoint**: ✅ Scheduler funcional. Scrapes automáticos cada N minutos respetando ventana horaria.
 
 ---
 
@@ -106,15 +106,15 @@
 
 ### Tests for User Story 3 ⚠️ TDD
 
-- [ ] T031 [P] [US3] Test for `useScrape` mutation accepts optional `groupId` parameter — create `apps/admin/src/hooks/use-scrape.spec.ts` (or `.test.ts` — verify admin Vitest convention first)
-- [ ] T032 [P] [US3] Test for `ScrapeControls` renders group dropdown with active groups — create `apps/admin/src/components/dashboard/scrape-controls.spec.tsx` (or `.test.tsx`)
+- [X] T031 [P] [US3] Test for `useScrape` mutation accepts optional `groupId` parameter — create `apps/admin/src/hooks/use-scrape.spec.ts` (or `.test.ts` — verify admin Vitest convention first)
+- [X] T032 [P] [US3] Test for `ScrapeControls` renders group dropdown with active groups — create `apps/admin/src/components/dashboard/scrape-controls.spec.tsx` (or `.test.tsx`)
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Modify `apps/admin/src/hooks/use-scrape.ts`: change `mutationFn` to accept `(args?: { groupId?: string; maxPosts?: number })` and pass to `triggerScrape(args?.groupId, args?.maxPosts)`
-- [ ] T034 [P] [US3] Add `triggerScrapeForAllGroups()` method to `apps/api/src/features/scrape/application/scrape.service.ts`: fetches active groups via `GroupsService.findActive()`, iterates calling scraper with `{ url: group.url, maxPosts: group.maxPosts }` for each, returns array of jobIds
-- [ ] T035 [US3] Modify `apps/admin/src/components/dashboard/scrape-controls.tsx`: add `<select>` dropdown with active groups from `fetchGroups()`, default option "Todos los grupos". When "Todos" selected, call `triggerScrape()` without args (backend handles iteration). When single group selected, call with `{ url: group.url }` by looking up the selected group.
-- [ ] T036 [US3] Modify `apps/admin/src/pages/groups-page.tsx`: add "Scrapear" button per row, state `scrapingGroupId`, `handleScrapeGroup()` that calls `triggerScrape(group.url, group.maxPosts)`, polls `GET /api/scrape/status/:jobId` every 2s, invalidates query on completion
+- [X] T033 [US3] Modify `apps/admin/src/hooks/use-scrape.ts`: change `mutationFn` to accept `(args?: { groupId?: string; maxPosts?: number })` and pass to `triggerScrape(args?.groupId, args?.maxPosts)`
+- [X] T034 [P] [US3] Add `triggerScrapeForAllGroups()` method to `apps/api/src/features/scrape/application/scrape.service.ts`: fetches active groups via `GroupsService.findActive()`, iterates calling scraper with `{ url: group.url, maxPosts: group.maxPosts }` for each, returns array of jobIds
+- [X] T035 [US3] Modify `apps/admin/src/components/dashboard/scrape-controls.tsx`: add `<select>` dropdown with active groups from `fetchGroups()`, default option "Todos los grupos". When "Todos" selected, call `triggerScrape()` without args (backend handles iteration). When single group selected, call with `{ url: group.url }` by looking up the selected group.
+- [X] T036 [US3] Modify `apps/admin/src/pages/groups-page.tsx`: add "Scrapear" button per row, state `scrapingGroupId`, `handleScrapeGroup()` that calls `triggerScrape(group.url, group.maxPosts)`, polls `GET /api/scrape/status/:jobId` every 2s, invalidates query on completion
 
 **Checkpoint**: Admin UI permite scrapear grupos individuales. Dashboard con selector. Grupos con botón por fila.
 
@@ -128,14 +128,14 @@
 
 ### Tests for User Story 4 ⚠️ TDD
 
-- [ ] T037 [P] [US4] Test for `job-tracker.ts` verifies completed jobs are removed after TTL in `packages/scraper/src/services/job-tracker.spec.ts`
-- [ ] T038 [P] [US4] Test for `job-tracker.ts` verifies running jobs are NOT removed after TTL in `packages/scraper/src/services/job-tracker.spec.ts`
-- [ ] T039 [P] [US4] Test for `job-tracker.ts` verifies TTL interval runs cleanup correctly in `packages/scraper/src/services/job-tracker.spec.ts`
+- [X] T037 [P] [US4] Test for `job-tracker.ts` verifies completed jobs are removed after TTL in `packages/scraper/src/services/job-tracker.spec.ts`
+- [X] T038 [P] [US4] Test for `job-tracker.ts` verifies running jobs are NOT removed after TTL in `packages/scraper/src/services/job-tracker.spec.ts`
+- [X] T039 [P] [US4] Test for `job-tracker.ts` verifies TTL interval runs cleanup correctly in `packages/scraper/src/services/job-tracker.spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T040 [US4] Add TTL cleanup to `packages/scraper/src/services/job-tracker.ts`: start `setInterval` every 60s that iterates `jobs` Map and deletes entries where `status` is `"completed"` or `"failed"` and `createdAt + 30 min < now`
-- [ ] T041 [US4] Add `cleanupInterval` reference to `job-tracker.ts` to allow stopping interval on server shutdown (optional, for graceful shutdown)
+- [X] T040 [US4] Add TTL cleanup to `packages/scraper/src/services/job-tracker.ts`: start `setInterval` every 60s that iterates `jobs` Map and deletes entries where `status` is `"completed"` or `"failed"` and `createdAt + 30 min < now`
+- [X] T041 [US4] Add `cleanupInterval` reference to `job-tracker.ts` to allow stopping interval on server shutdown (optional, for graceful shutdown)
 
 **Checkpoint**: Memoria del scraper no crece indefinidamente. Jobs viejos se limpian automáticamente.
 
@@ -145,14 +145,14 @@
 
 **Purpose**: Verificación final, tests de integración, build
 
-- [ ] T042 Run full scraper test suite: `pnpm --filter @fb-store/scraper test` — all pass
-- [ ] T043 Run full API test suite: `pnpm --filter @fb-store/api test` — all pass
-- [ ] T044 Run full Admin UI test suite: `pnpm --filter @fb-store/admin test` (if exists)
-- [ ] T045 Run full build: `pnpm build` — no errors
-- [ ] T046 Run quickstart.md Escenario 1 validation (manual): POST /api/scrape → verify RawPost + ScrapeLog + AI queue
-- [ ] T047 Run quickstart.md Escenario 2 validation (manual): PUT /api/schedule → verify scheduler executes cycle
-- [ ] T048 Run quickstart.md Escenario 6 validation (manual): error scenarios (DB down, scraper down)
-- [ ] T049 Update research.md with any implementation discoveries (following pattern from Spec 006)
+- [X] T042 Run full scraper test suite: `pnpm --filter @fb-store/scraper test` — ✅ 55 passed (8 test files)
+- [X] T043 Run full API test suite: `pnpm --filter @fb-store/api test` — ✅ 133 passed (17 test files)
+- [X] T044 Run full Admin UI test suite: no test script in `apps/admin/package.json` — skipped
+- [X] T045 Run full build: `pnpm build` — ✅ 5/5 packages built (fixed `tsconfig.app.json` exclude + `mutate()` call)
+- [ ] T046 (manual) POST /api/scrape → verify RawPost + ScrapeLog + AI queue
+- [ ] T047 (manual) PUT /api/schedule → verify scheduler executes cycle
+- [ ] T048 (manual) Error scenarios (DB down, scraper down)
+- [X] T049 Update research.md with implementation discoveries
 
 ---
 

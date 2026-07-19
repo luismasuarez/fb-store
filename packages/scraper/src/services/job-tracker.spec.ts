@@ -1,5 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createJob, getJob, registerSSE, notifyClients, removeSSE } from "./job-tracker";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  createJob,
+  getJob,
+  updateJob,
+  registerSSE,
+  notifyClients,
+  removeSSE,
+  startCleanup,
+  stopCleanup,
+} from "./job-tracker";
 
 describe("job-tracker SSE", () => {
   beforeEach(() => {});
@@ -24,5 +33,60 @@ describe("job-tracker SSE", () => {
 
     removeSSE(jobId, client);
     expect(job?.sseClients.has(client)).toBe(false);
+  });
+});
+
+describe("job-tracker TTL", () => {
+  const TTL_MS = 30 * 60 * 1000;
+  const CLEANUP_INTERVAL_MS = 60 * 1000;
+
+  afterEach(() => {
+    stopCleanup();
+    vi.useRealTimers();
+  });
+
+  it("T037: removes completed jobs after TTL", () => {
+    vi.useFakeTimers();
+
+    const jobId = crypto.randomUUID();
+    createJob(jobId, { url: "https://facebook.com/groups/123", maxPosts: 20, profile: "cuenta-1" });
+
+    vi.advanceTimersByTime(TTL_MS + 1000);
+    updateJob(jobId, { status: "completed" });
+
+    startCleanup();
+    vi.advanceTimersByTime(CLEANUP_INTERVAL_MS);
+
+    expect(getJob(jobId)).toBeUndefined();
+  });
+
+  it("T038: does NOT remove running jobs after TTL", () => {
+    vi.useFakeTimers();
+
+    const jobId = crypto.randomUUID();
+    createJob(jobId, { url: "https://facebook.com/groups/123", maxPosts: 20, profile: "cuenta-1" });
+    updateJob(jobId, { status: "running" });
+
+    vi.advanceTimersByTime(TTL_MS + 1000);
+    startCleanup();
+    vi.advanceTimersByTime(CLEANUP_INTERVAL_MS);
+
+    expect(getJob(jobId)).toBeDefined();
+  });
+
+  it("T039: cleanup interval runs correctly", () => {
+    vi.useFakeTimers();
+
+    const jobId = crypto.randomUUID();
+    createJob(jobId, { url: "https://facebook.com/groups/123", maxPosts: 20, profile: "cuenta-1" });
+
+    vi.advanceTimersByTime(TTL_MS + 1000);
+    updateJob(jobId, { status: "failed" });
+
+    startCleanup();
+    expect(getJob(jobId)).toBeDefined();
+
+    vi.advanceTimersByTime(CLEANUP_INTERVAL_MS);
+    expect(getJob(jobId)).toBeUndefined();
   });
 });
