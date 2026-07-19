@@ -67,6 +67,60 @@
 | **Alternatives considered** | Scraper llama al API NestJS cuando termina (inversión de dependencia, el scraper conocería al API). Scraper encola directamente en BullMQ AI queue (mantiene dependencia de Redis en el scraper). |
 | **References** | Ninguna — patrón de orquestación estándar. |
 
+### D9. Metadata de Perfiles (Implementación)
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | Archivo `.meta.json` por perfil en el filesystem |
+| **Rationale** | 1-10 perfiles, metadata plana (4 campos), sin necesidad de queries. Cero dependencias — SQLite requiere native addon que complica el Dockerfile. Postgres/Prisma es overkill para 4 fields por perfil. El edge case de race condition no aplica porque por diseño solo un request a la vez por perfil. |
+| **Alternatives considered** | SQLite con `better-sqlite3` (~5MB native addon, build tools en Docker). Postgres via Prisma (conexión de red, schema migration, overkill). |
+| **References** | Decisión tomada durante implementación con el usuario. |
+
+### D10. Rutas de Health Endpoints
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | Health endpoints se montan en `/` y `/api/v1` simultáneamente. Auth middleware excluye ambos sets de paths. |
+| **Rationale** | Los health endpoints deben ser accesibles sin API key. Montarlos en ambos niveles permite compatibilidad: `/health` para accesos internos del container (Docker healthcheck) y `/api/v1/health` para consistencia con el resto de la API. El auth middleware debe listar explícitamente todos los paths públicos. |
+| **Alternatives considered** | Mover health solo a `/api/v1` (rompe healthchecks de Docker que apuntan a `/ready`). Usar un prefijo de excepción tipo regex en auth (más complejo, menos explícito). |
+| **References** | Bug descubierto en testing: `auth.ts` solo excluía `/health` y `/ready`, no `/api/v1/health`. |
+
+### D11. Consistencia de Directorio de Perfiles
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | `browser.ts` usa `PROFILE_DIR/env` + `name` en vez de hardcodear `profiles/{name}`. `profile-manager.ts` delega en `getProfileBaseDir()` de browser.ts. |
+| **Rationale** | Originalmente `browser.ts` hardcodeaba `path.resolve(PROJECT_ROOT, "profiles", name)`. Esto creaba inconsistencia: el scraper usaba un directorio y el profile-manager otro (`PROFILE_DIR` env var). Unificando ambos detrás de `getProfileBaseDir()` se garantiza que scrape y gestión de perfiles apunten al mismo lugar. |
+| **Alternatives considered** | Mover la lógica de directorio a una utility separada (sobreingeniería para una sola función). |
+| **References** | Bug reportado por el usuario: `PROFILE_DIR` no era respetado por el flujo de scrape. |
+
+### D12. Persistencia de Session Check en .meta.json
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | `checkSession()` escribe `loginStatus` y `lastUsedAt` en `.meta.json` después de verificar la sesión. |
+| **Rationale** | Originalmente `checkSession()` solo retornaba el resultado pero nunca lo persistía. El perfil quedaba siempre como `"unknown"` incluso después de verificaciones exitosas. Persistiendo el resultado, el dashboard puede mostrar el estado real sin ejecutar un checkSession (que toma ~15s por perfil). |
+| **Alternatives considered** | Mantenerlo volátil (cada GET /profiles requeriría checkSession, lento). Cache en memoria (se pierde al reiniciar el servidor). |
+| **References** | Reportado por el usuario durante testing: perfil mostraba "unknown" tras checkSession exitoso. |
+
+### D13. Proxy SSE en NestJS (Fastify)
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | Usar `reply.hijack()` de Fastify + `Readable.fromWeb()` para pipe del SSE stream desde el scraper. |
+| **Rationale** | NestJS usa Fastify como adapter HTTP. No hay middleware SSE nativo para Fastify. La alternativa de configurar CORS en el scraper y apuntar el Admin UI directamente requería exponer el scraper al navegador y configuración de CORS. El proxy vía NestJS mantiene una sola puerta de entrada a la API. |
+| **Alternatives considered** | CORS directo desde el scraper (expone internals del scraper al browser, más superficie de ataque). SSE library para NestJS (dependencia extra). |
+| **References** | Implementado en `apps/api/src/features/scrape/api/scrape.controller.ts`. |
+
+### D14. Inyección de API Key en Dashboard
+
+| Aspect | Detail |
+|--------|--------|
+| **Decision** | El dashboard HTML recibe `SCRAPER_API_KEY` como placeholder reemplazado server-side. |
+| **Rationale** | Las peticiones htmx desde el dashboard necesitan enviar `x-api-key` header. Inyectar la key server-side evita que el operador tenga que configurarla manualmente en el HTML. Es seguro porque el dashboard solo es accesible dentro de la red interna del container. |
+| **Alternatives considered** | Prompt al operador para que ingrese la key (UX pobre). Cookie con la key (inseguro). Proxy de requests via backend (complejidad extra). |
+| **References** | Template string `__SCRAPER_API_KEY__` en `dashboard.html` reemplazado en `server.ts:41`. |
+
 ### D8. Manejo de Chrome Lock Files
 
 | Aspect | Detail |
