@@ -147,6 +147,9 @@ importers:
       bullmq:
         specifier: 5.77.3
         version: 5.77.3
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       ioredis:
         specifier: ^5.0.0
         version: 5.10.1
@@ -227,12 +230,18 @@ importers:
       '@fb-store/shared':
         specifier: workspace:*
         version: link:../shared
+      '@hono/node-server':
+        specifier: ^1.13.0
+        version: 1.19.11(hono@4.12.23)
       bullmq:
         specifier: 5.77.3
         version: 5.77.3
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.23
       ioredis:
         specifier: ^5.0.0
         version: 5.10.1
@@ -242,6 +251,9 @@ importers:
       sanitize-html:
         specifier: ^2.0.0
         version: 2.17.4
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^22.19.19

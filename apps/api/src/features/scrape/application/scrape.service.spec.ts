@@ -1,92 +1,148 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { QueueService } from "../../../infrastructure/queue/queue.service";
+import { AppConfigService } from "../../../infrastructure/config/app-config.service";
 import { ScrapeService } from "./scrape.service";
+
+function mockFetch(
+  status: number,
+  body: unknown,
+): ReturnType<typeof vi.fn> {
+  return vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    json: vi.fn().mockResolvedValue(body),
+  });
+}
 
 describe("ScrapeService", () => {
   let service: ScrapeService;
-  let queueService: { addScrapeJob: vi.Mock; getJob: vi.Mock };
+  let config: { getRequiredString: ReturnType<typeof vi.fn> };
+  let fetchSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
-    queueService = { addScrapeJob: vi.fn(), getJob: vi.fn() };
+    config = {
+      getRequiredString: vi.fn((key: string) => {
+        if (key === "SCRAPER_URL") return "http://scraper:3001";
+        if (key === "SCRAPER_API_KEY") return "test-api-key";
+        throw new Error(`Unexpected key: ${key}`);
+      }),
+    };
+
+    fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ScrapeService,
-        { provide: QueueService, useValue: queueService },
+        { provide: AppConfigService, useValue: config },
       ],
     }).compile();
 
     service = module.get<ScrapeService>(ScrapeService);
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   describe("triggerScrape", () => {
-    it("enqueues job and returns jobId", async () => {
-      queueService.addScrapeJob.mockResolvedValue({ id: "job-123" });
+    it("calls scraper and returns jobId", async () => {
+      fetchSpy.mockImplementation(
+        mockFetch(202, { jobId: "job-123" }),
+      );
 
       const result = await service.triggerScrape("group-1", 10);
 
-      expect(queueService.addScrapeJob).toHaveBeenCalledWith({
-        groupId: "group-1",
-        maxPosts: 10,
-      });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "http://scraper:3001/api/v1/scrape",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": "test-api-key",
+          },
+          body: JSON.stringify({ groupId: "group-1", maxPosts: 10 }),
+        },
+      );
       expect(result).toEqual({ jobId: "job-123" });
     });
 
     it("works without optional params", async () => {
-      queueService.addScrapeJob.mockResolvedValue({ id: "job-456" });
+      fetchSpy.mockImplementation(
+        mockFetch(202, { jobId: "job-456" }),
+      );
 
       const result = await service.triggerScrape();
 
-      expect(queueService.addScrapeJob).toHaveBeenCalledWith({
-        groupId: undefined,
-        maxPosts: undefined,
-      });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "http://scraper:3001/api/v1/scrape",
+        expect.objectContaining({
+          body: JSON.stringify({ groupId: undefined, maxPosts: undefined }),
+        }),
+      );
       expect(result).toEqual({ jobId: "job-456" });
+    });
+
+    it("throws on scraper error", async () => {
+      fetchSpy.mockImplementation(
+        mockFetch(500, {
+          error: { message: "Internal error" },
+        }),
+      );
+
+      await expect(service.triggerScrape()).rejects.toThrow(
+        "Internal error",
+      );
     });
   });
 
   describe("getJobStatus", () => {
     it("returns formatted job status", async () => {
-      const job = {
-        id: "job-123",
-        getState: vi.fn().mockResolvedValue("completed"),
-        progress: 100,
-        returnvalue: { postsFound: 15 },
-        failedReason: null,
-        timestamp: 1700000000000,
-      };
-      queueService.getJob.mockResolvedValue(job);
+      fetchSpy.mockImplementation(
+        mockFetch(200, {
+          id: "job-123",
+          status: "completed",
+          progress: { phase: "saving", current: 15, total: 15 },
+          result: { posts: [], metrics: { postsFound: 15, postsNew: 15, durationMs: 5000 } },
+          failedReason: undefined,
+          createdAt: "2023-11-14T22:13:20.000Z",
+        }),
+      );
 
       const result = await service.getJobStatus("job-123");
 
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "http://scraper:3001/api/v1/scrape/job-123",
+        { headers: { "x-api-key": "test-api-key" } },
+      );
       expect(result).toEqual({
         jobId: "job-123",
         status: "completed",
-        progress: 100,
-        result: { postsFound: 15 },
-        failedReason: null,
+        progress: { phase: "saving", current: 15, total: 15 },
+        result: { posts: [], metrics: { postsFound: 15, postsNew: 15, durationMs: 5000 } },
+        failedReason: undefined,
         timestamp: "2023-11-14T22:13:20.000Z",
       });
     });
 
     it("returns null when job not found", async () => {
-      queueService.getJob.mockResolvedValue(null);
+      fetchSpy.mockImplementation(mockFetch(404, {}));
 
       const result = await service.getJobStatus("non-existent");
 
       expect(result).toBeNull();
     });
 
-    it("handles waiting jobs", async () => {
-      const job = {
-        id: "job-456",
-        getState: vi.fn().mockResolvedValue("waiting"),
-        progress: 0,
-        returnvalue: null,
-        failedReason: null,
-        timestamp: null,
-      };
-      queueService.getJob.mockResolvedValue(job);
+    it("handles null createdAt", async () => {
+      fetchSpy.mockImplementation(
+        mockFetch(200, {
+          id: "job-456",
+          status: "waiting",
+          progress: { phase: "queued", current: 0, total: 0 },
+          result: null,
+          failedReason: undefined,
+          createdAt: null,
+        }),
+      );
 
       const result = await service.getJobStatus("job-456");
 

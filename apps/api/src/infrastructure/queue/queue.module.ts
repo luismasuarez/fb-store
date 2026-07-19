@@ -17,7 +17,6 @@ import { QueueService } from "./queue.service";
       inject: [AppConfigService],
     }),
     BullModule.registerQueue(
-      { name: "scrape" },
       { name: "ai-process" },
     ),
   ],

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scraper Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1a1a1a; color: #e0e0e0; font-family: system-ui, monospace; padding: 2rem; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; color: #fff; }
+    h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: #ccc; }
+    .card { background: #2a2a2a; border: 1px solid #444; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem; }
+    .card-header { font-size: 0.85rem; color: #999; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .form-row { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .form-group label { font-size: 0.8rem; color: #999; }
+    input, select { background: #1a1a1a; border: 1px solid #555; color: #e0e0e0; padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.9rem; }
+    input:focus, select:focus { outline: none; border-color: #6af; }
+    button { background: #333; color: #e0e0e0; border: 1px solid #555; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+    button:hover { background: #444; }
+    button.primary { background: #2563eb; border-color: #3b82f6; color: #fff; }
+    button.primary:hover { background: #3b82f6; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #333; font-size: 0.85rem; }
+    th { color: #999; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; }
+    .badge-unknown { background: #333; color: #999; }
+    .badge-alive { background: #064e3b; color: #6ee7b7; }
+    .badge-dead { background: #7f1d1d; color: #fca5a5; }
+    .badge-locked { background: #78350f; color: #fdba74; }
+    .result-box { background: #111; border: 1px solid #333; border-radius: 4px; padding: 0.75rem; margin-top: 0.5rem; font-family: monospace; font-size: 0.75rem; max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+    .result-box.success { border-color: #059669; }
+    .result-box.error { border-color: #dc2626; }
+    .result-box.loading { border-color: #2563eb; }
+    .error-text { color: #fca5a5; }
+    a { color: #6af; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Scraper Dashboard</h1>
+
+  <div class="card">
+    <div class="card-header">Quick Scrape</div>
+    <form id="scrape-form">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label for="url">URL</label>
+          <input type="text" id="url" placeholder="https://facebook.com/groups/..." style="width:100%">
+        </div>
+        <div class="form-group" style="flex:0 0 100px">
+          <label for="maxPosts">Max Posts</label>
+          <input type="number" id="maxPosts" value="10" min="1" max="200">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label for="profile-select">Account</label>
+          <select id="profile-select"><option value="">(select account)</option></select>
+        </div>
+        <button type="submit" class="primary" id="scrape-btn">Scrape Now</button>
+      </div>
+    </form>
+    <div id="scrape-result"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Accounts</span>
+      <button id="new-account-btn" onclick="showNewAccountForm()" style="font-size:0.8rem;padding:0.3rem 0.6rem">+ New Account</button>
+    </div>
+    <div id="new-account-form" style="display:none;margin-bottom:0.75rem">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label for="account-name">Account name</label>
+          <input type="text" id="account-name" placeholder="e.g. cuenta-2" style="width:100%" pattern="^[a-zA-Z0-9_-]+$" title="Letters, numbers, hyphens and underscores only">
+        </div>
+        <button onclick="createAccount()" class="primary" style="padding:0.35rem 0.75rem">Create</button>
+        <button onclick="hideNewAccountForm()" style="padding:0.35rem 0.75rem">Cancel</button>
+      </div>
+      <div id="account-creation-msg" style="margin-top:0.4rem;font-size:0.8rem"></div>
+    </div>
+    <div id="profiles-content">
+      <div class="skeleton" style="background:#333;border-radius:4px;height:1rem;width:60%;margin:0.25rem 0;animation:pulse 1.5s infinite"></div>
+      <div class="skeleton" style="background:#333;border-radius:4px;height:1rem;width:40%;margin:0.25rem 0;animation:pulse 1.5s infinite"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "__SCRAPER_API_KEY__";
+    const BASE = "/api/v1";
+
+    function apiHeaders() {
+      return { "x-api-key": API_KEY, "Content-Type": "application/json" };
+    }
+
+    async function apiFetch(path, opts = {}) {
+      const res = await fetch(BASE + path, { ...opts, headers: { ...apiHeaders(), ...opts.headers } });
+      const text = await res.text();
+      try { return { ok: res.ok, status: res.status, data: JSON.parse(text), raw: text }; }
+      catch { return { ok: res.ok, status: res.status, data: null, raw: text }; }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function statusBadge(s) {
+      const cls = "badge badge-" + (s || "unknown");
+      return `<span class="${cls}">${escapeHtml(s || "unknown")}</span>`;
+    }
+
+    async function loadProfiles() {
+      const container = document.getElementById("profiles-content");
+      const select = document.getElementById("profile-select");
+      const res = await apiFetch("/profiles");
+
+      if (!res.ok) {
+        container.innerHTML = `<p class="error-text">Failed to load accounts (${res.status})</p>`;
+        return;
+      }
+
+      const profiles = res.data.data.profiles;
+      if (!profiles.length) {
+        container.innerHTML = `<p style="color:#999;font-size:0.85rem">No accounts yet. Create one above.</p>`;
+        select.innerHTML = `<option value="">(no accounts)</option>`;
+        return;
+      }
+
+      select.innerHTML = `<option value="">(select account)</option>` +
+        profiles.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("");
+
+      const rows = profiles.map(p => {
+        const name = escapeHtml(p.name);
+        const status = statusBadge(p.loginStatus);
+        return `<tr>
+          <td style="font-weight:600">${name}</td>
+          <td>${status}</td>
+          <td class="actions">
+            <button onclick="checkSession('${name}',this)">Check</button>
+            <button onclick="loginProfile('${name}')">Login</button>
+          </td>
+        </tr>`;
+      }).join("");
+
+      container.innerHTML = `<table><thead><tr><th>Account</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function showNewAccountForm() {
+      document.getElementById("new-account-btn").style.display = "none";
+      document.getElementById("new-account-form").style.display = "block";
+      document.getElementById("account-name").value = "";
+      document.getElementById("account-creation-msg").innerHTML = "";
+      document.getElementById("account-name").focus();
+    }
+
+    function hideNewAccountForm() {
+      document.getElementById("new-account-btn").style.display = "";
+      document.getElementById("new-account-form").style.display = "none";
+      document.getElementById("account-creation-msg").innerHTML = "";
+    }
+
+    async function createAccount() {
+      const name = document.getElementById("account-name").value.trim();
+      const msgDiv = document.getElementById("account-creation-msg");
+
+      if (!name) { msgDiv.innerHTML = '<span class="error-text">Name is required</span>'; return; }
+      if (!/^[a-zA-Z0-9_-]+$/.test(name)) { msgDiv.innerHTML = '<span class="error-text">Only letters, numbers, hyphens and underscores allowed</span>'; return; }
+
+      const res = await apiFetch("/profiles", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+
+      if (res.ok) {
+        hideNewAccountForm();
+        loadProfiles();
+      } else if (res.status === 409) {
+        msgDiv.innerHTML = '<span class="error-text">An account with this name already exists</span>';
+      } else if (res.status === 400) {
+        msgDiv.innerHTML = '<span class="error-text">Invalid account name</span>';
+      } else {
+        msgDiv.innerHTML = `<span class="error-text">Error: ${res.status}</span>`;
+      }
+    }
+
+    async function checkSession(name, btn) {
+      btn.disabled = true;
+      btn.textContent = "Checking...";
+      const res = await apiFetch("/profiles/" + encodeURIComponent(name) + "/check");
+      btn.disabled = false;
+      btn.textContent = "Check";
+
+      if (!res.ok) { alert("Check failed: " + (res.data?.error?.message || res.status)); return; }
+
+      const r = res.data.data;
+      const alive = r.alive ? "alive" : "dead";
+      alert(`Session: ${alive}\nReason: ${r.reason}\nChecked: ${r.checkedAt}`);
+      loadProfiles();
+    }
+
+    async function loginProfile(name) {
+      const res = await apiFetch("/login", {
+        method: "POST",
+        body: JSON.stringify({ profile: name }),
+      });
+
+      if (!res.ok) {
+        const msg = res.data?.error?.message || res.status;
+        if (res.status === 409) {
+          const statusRes = await apiFetch("/login/" + encodeURIComponent(name) + "/status");
+          const data = statusRes.data?.data;
+          if (data?.vncUrl) { openVncTab(data.vncUrl); return; }
+        }
+        alert("Login failed: " + msg);
+        return;
+      }
+
+      const data = res.data.data;
+      if (data.vncUrl) openVncTab(data.vncUrl);
+      alert(`Login session started for "${name}".\nVNC: ${data.vncUrl}\nState: ${data.state}`);
+    }
+
+    function openVncTab(url) {
+      window.open(url, "_blank", "width=1280,height=800");
+    }
+
+    document.getElementById("scrape-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = document.getElementById("url").value.trim();
+      const maxPosts = parseInt(document.getElementById("maxPosts").value, 10) || 10;
+      const profile = document.getElementById("profile-select").value;
+      const resultDiv = document.getElementById("scrape-result");
+      const btn = document.getElementById("scrape-btn");
+
+      if (!url && !profile) { resultDiv.innerHTML = '<div class="result-box error">Enter a URL or select a profile</div>'; return; }
+      if (!profile) { resultDiv.innerHTML = '<div class="result-box error">Select a profile</div>'; return; }
+
+      btn.disabled = true;
+      btn.textContent = "Scraping...";
+      resultDiv.innerHTML = '<div class="result-box loading">Scraping... waiting for results</div>';
+
+      const res = await apiFetch("/scrape", {
+        method: "POST",
+        body: JSON.stringify({ url: url || undefined, maxPosts, profile, wait: true }),
+      });
+
+      btn.disabled = false;
+      btn.textContent = "Scrape Now";
+
+      const pretty = JSON.stringify(res.data, null, 2);
+      if (res.ok) {
+        resultDiv.innerHTML = `<div class="result-box success">${escapeHtml(pretty)}</div>`;
+      } else {
+        resultDiv.innerHTML = `<div class="result-box error">${escapeHtml(pretty)}</div>`;
+      }
+    });
+
+    loadProfiles();
+    setInterval(loadProfiles, 10000);
+  </script>
+</body>
+</html>

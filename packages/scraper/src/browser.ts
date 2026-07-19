@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 const PROJECT_ROOT = process.env.INIT_CWD || process.cwd();
 config({ path: path.resolve(PROJECT_ROOT, ".env") });
 
-function detectChrome(): string | undefined {
+export function detectChrome(): string | undefined {
   const candidates = [
     process.env.CHROME_PATH,
     "/usr/bin/google-chrome",
@@ -22,7 +22,12 @@ function detectChrome(): string | undefined {
 }
 
 export function getProfileDir(name: string): string {
-  return path.resolve(PROJECT_ROOT, "profiles", name);
+  const base = process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
+  return path.resolve(base, name);
+}
+
+export function getProfileBaseDir(): string {
+  return process.env.PROFILE_DIR || path.resolve(PROJECT_ROOT, "profiles");
 }
 
 export async function createContext(profileDir: string): Promise<BrowserContext> {
