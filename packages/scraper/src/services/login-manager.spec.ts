@@ -11,6 +11,10 @@ vi.mock("node:fs/promises", () => ({
   writeFile: mockWriteFile,
 }));
 
+vi.mock("../browser", () => ({
+  detectChrome: vi.fn(() => "/usr/bin/chromium"),
+}));
+
 const { startLogin, getStatus, completeLogin, _clearSessions } = await import("./login-manager");
 
 describe("login-manager", () => {
@@ -19,7 +23,6 @@ describe("login-manager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.PROFILE_DIR = "/mock/profiles";
-    process.env.CHROME_PATH = "/usr/bin/chromium";
     killSpy = vi.spyOn(process, "kill").mockImplementation(() => {});
     _clearSessions();
   });

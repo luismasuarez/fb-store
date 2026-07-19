@@ -20,6 +20,7 @@ const mockCreateContext = vi.fn();
 
 vi.mock("../browser", () => ({
   getProfileDir: (name: string) => `/mock/profiles/${name}`,
+  getProfileBaseDir: () => "/mock/profiles",
   createContext: mockCreateContext,
 }));
 

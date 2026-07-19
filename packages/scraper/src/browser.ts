@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 const PROJECT_ROOT = process.env.INIT_CWD || process.cwd();
 config({ path: path.resolve(PROJECT_ROOT, ".env") });
 
-function detectChrome(): string | undefined {
+export function detectChrome(): string | undefined {
   const candidates = [
     process.env.CHROME_PATH,
     "/usr/bin/google-chrome",

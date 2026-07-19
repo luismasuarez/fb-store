@@ -25,7 +25,7 @@ describe("profiles route", () => {
         { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
       ]);
 
-      const res = await app.request("/");
+      const res = await app.request("/profiles");
       const body = await res.json();
 
       expect(res.status).toBe(200);
@@ -43,7 +43,7 @@ describe("profiles route", () => {
         loginStatus: "unknown",
       });
 
-      const res = await app.request("/", {
+      const res = await app.request("/profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "cuenta-2" }),
@@ -55,7 +55,7 @@ describe("profiles route", () => {
     });
 
     it("returns 400 for invalid name", async () => {
-      const res = await app.request("/", {
+      const res = await app.request("/profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "invalid name with spaces" }),
@@ -69,7 +69,7 @@ describe("profiles route", () => {
         { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
       ]);
 
-      const res = await app.request("/", {
+      const res = await app.request("/profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "cuenta-1" }),
@@ -83,7 +83,7 @@ describe("profiles route", () => {
     it("removes profile", async () => {
       vi.mocked(profileManager.deleteProfile).mockResolvedValue(undefined);
 
-      const res = await app.request("/cuenta-1", { method: "DELETE" });
+      const res = await app.request("/profiles/cuenta-1", { method: "DELETE" });
 
       expect(res.status).toBe(204);
     });
@@ -97,7 +97,7 @@ describe("profiles route", () => {
         checkedAt: "2026-01-01T00:00:00.000Z",
       });
 
-      const res = await app.request("/cuenta-1/check");
+      const res = await app.request("/profiles/cuenta-1/check");
       const body = await res.json();
 
       expect(res.status).toBe(200);

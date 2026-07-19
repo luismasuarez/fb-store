@@ -54,8 +54,8 @@
           <input type="number" id="maxPosts" value="10" min="1" max="200">
         </div>
         <div class="form-group" style="flex:1">
-          <label for="profile-select">Profile</label>
-          <select id="profile-select"><option value="">(select profile)</option></select>
+          <label for="profile-select">Account</label>
+          <select id="profile-select"><option value="">(select account)</option></select>
         </div>
         <button type="submit" class="primary" id="scrape-btn">Scrape Now</button>
       </div>
@@ -64,7 +64,21 @@
   </div>
 
   <div class="card">
-    <div class="card-header">Profiles</div>
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Accounts</span>
+      <button id="new-account-btn" onclick="showNewAccountForm()" style="font-size:0.8rem;padding:0.3rem 0.6rem">+ New Account</button>
+    </div>
+    <div id="new-account-form" style="display:none;margin-bottom:0.75rem">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label for="account-name">Account name</label>
+          <input type="text" id="account-name" placeholder="e.g. cuenta-2" style="width:100%" pattern="^[a-zA-Z0-9_-]+$" title="Letters, numbers, hyphens and underscores only">
+        </div>
+        <button onclick="createAccount()" class="primary" style="padding:0.35rem 0.75rem">Create</button>
+        <button onclick="hideNewAccountForm()" style="padding:0.35rem 0.75rem">Cancel</button>
+      </div>
+      <div id="account-creation-msg" style="margin-top:0.4rem;font-size:0.8rem"></div>
+    </div>
     <div id="profiles-content">
       <div class="skeleton" style="background:#333;border-radius:4px;height:1rem;width:60%;margin:0.25rem 0;animation:pulse 1.5s infinite"></div>
       <div class="skeleton" style="background:#333;border-radius:4px;height:1rem;width:40%;margin:0.25rem 0;animation:pulse 1.5s infinite"></div>
@@ -103,18 +117,18 @@
       const res = await apiFetch("/profiles");
 
       if (!res.ok) {
-        container.innerHTML = `<p class="error-text">Failed to load profiles (${res.status})</p>`;
+        container.innerHTML = `<p class="error-text">Failed to load accounts (${res.status})</p>`;
         return;
       }
 
       const profiles = res.data.data.profiles;
       if (!profiles.length) {
-        container.innerHTML = `<p style="color:#999;font-size:0.85rem">No profiles found.</p>`;
-        select.innerHTML = `<option value="">(no profiles)</option>`;
+        container.innerHTML = `<p style="color:#999;font-size:0.85rem">No accounts yet. Create one above.</p>`;
+        select.innerHTML = `<option value="">(no accounts)</option>`;
         return;
       }
 
-      select.innerHTML = `<option value="">(select profile)</option>` +
+      select.innerHTML = `<option value="">(select account)</option>` +
         profiles.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("");
 
       const rows = profiles.map(p => {
@@ -130,7 +144,45 @@
         </tr>`;
       }).join("");
 
-      container.innerHTML = `<table><thead><tr><th>Profile</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+      container.innerHTML = `<table><thead><tr><th>Account</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function showNewAccountForm() {
+      document.getElementById("new-account-btn").style.display = "none";
+      document.getElementById("new-account-form").style.display = "block";
+      document.getElementById("account-name").value = "";
+      document.getElementById("account-creation-msg").innerHTML = "";
+      document.getElementById("account-name").focus();
+    }
+
+    function hideNewAccountForm() {
+      document.getElementById("new-account-btn").style.display = "";
+      document.getElementById("new-account-form").style.display = "none";
+      document.getElementById("account-creation-msg").innerHTML = "";
+    }
+
+    async function createAccount() {
+      const name = document.getElementById("account-name").value.trim();
+      const msgDiv = document.getElementById("account-creation-msg");
+
+      if (!name) { msgDiv.innerHTML = '<span class="error-text">Name is required</span>'; return; }
+      if (!/^[a-zA-Z0-9_-]+$/.test(name)) { msgDiv.innerHTML = '<span class="error-text">Only letters, numbers, hyphens and underscores allowed</span>'; return; }
+
+      const res = await apiFetch("/profiles", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+
+      if (res.ok) {
+        hideNewAccountForm();
+        loadProfiles();
+      } else if (res.status === 409) {
+        msgDiv.innerHTML = '<span class="error-text">An account with this name already exists</span>';
+      } else if (res.status === 400) {
+        msgDiv.innerHTML = '<span class="error-text">Invalid account name</span>';
+      } else {
+        msgDiv.innerHTML = `<span class="error-text">Error: ${res.status}</span>`;
+      }
     }
 
     async function checkSession(name, btn) {

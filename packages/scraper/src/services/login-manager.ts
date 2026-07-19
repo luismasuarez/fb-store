@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { detectChrome } from "../browser";
 
 export type LoginState = "idle" | "login-in-progress" | "logged-in";
 
@@ -18,10 +19,6 @@ function getProfileDir(): string {
   return process.env.PROFILE_DIR || "/app/profiles";
 }
 
-function detectChrome(): string {
-  return process.env.CHROME_PATH || "/usr/bin/chromium";
-}
-
 export async function startLogin(profile: string): Promise<LoginSession> {
   if (sessions.has(profile)) {
     const existing = sessions.get(profile)!;
@@ -30,8 +27,12 @@ export async function startLogin(profile: string): Promise<LoginSession> {
     }
   }
 
-  const profileDir = join(getProfileDir(), profile);
   const chromePath = detectChrome();
+  if (!chromePath) {
+    throw new Error("BUSINESS:Chrome binary not found. Login requires Docker with Chrome installed.");
+  }
+
+  const profileDir = join(getProfileDir(), profile);
   const vncUrl = "http://scraper:6080/vnc.html?password=fbstore";
 
   const proc = spawn(chromePath, [
@@ -55,7 +56,15 @@ export async function startLogin(profile: string): Promise<LoginSession> {
 
   sessions.set(profile, session);
 
-  proc.on("exit", () => {
+  proc.on("error", () => {
+    sessions.delete(profile);
+  });
+
+  proc.on("exit", (code) => {
+    if (code !== 0) {
+      sessions.delete(profile);
+      return;
+    }
     const s = sessions.get(profile);
     if (s && s.state === "login-in-progress") {
       sessions.set(profile, { ...s, state: "logged-in" });
