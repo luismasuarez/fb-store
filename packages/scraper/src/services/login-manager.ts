@@ -1,9 +1,9 @@
 import { chromium } from "playwright";
 import { writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { readdirSync } from "node:fs";
+import { getProfileBaseDir } from "../browser";
 
 export type LoginState = "idle" | "login-in-progress" | "logged-in";
 
@@ -18,7 +18,7 @@ export interface LoginSession {
 const sessions = new Map<string, LoginSession>();
 
 function getProfileDir(): string {
-  return process.env.PROFILE_DIR || "/app/profiles";
+  return getProfileBaseDir();
 }
 
 function findSystemChrome(): string | undefined {
