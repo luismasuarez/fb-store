@@ -60,7 +60,7 @@ export async function startLogin(profile: string): Promise<LoginSession> {
     sessions.delete(profile);
   });
 
-  proc.on("exit", (code) => {
+  proc.on("exit", async (code) => {
     if (code !== 0) {
       sessions.delete(profile);
       return;
@@ -68,6 +68,12 @@ export async function startLogin(profile: string): Promise<LoginSession> {
     const s = sessions.get(profile);
     if (s && s.state === "login-in-progress") {
       sessions.set(profile, { ...s, state: "logged-in" });
+      const profileDir = join(getProfileDir(), profile);
+      await writeFile(join(profileDir, ".meta.json"), JSON.stringify({
+        createdAt: s.startedAt,
+        lastUsedAt: new Date().toISOString(),
+        loginStatus: "alive",
+      }, null, 2)).catch(() => {});
     }
   });
 
