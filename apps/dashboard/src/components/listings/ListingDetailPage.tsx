@@ -225,8 +225,8 @@ export default function ListingDetailPage({ id }: { id: string }) {
                 <div className="flex flex-wrap gap-2">
                   {l.images.map((img: any, i: number) => (
                     <div key={i} className="h-20 w-20 overflow-hidden rounded-md border bg-muted">
-                      {typeof img === "string" && img.startsWith("data:") ? (
-                        <img src={img} alt="" className="h-full w-full object-cover" />
+                      {img?.data ? (
+                        <img src={`data:image/jpeg;base64,${img.data}`} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-muted-foreground">
                           <Camera className="h-5 w-5" />
