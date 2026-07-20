@@ -4,13 +4,23 @@ import AppLayout from "@/components/layout/AppLayout"
 import { ClientRouter } from "astro:transitions"
 ---
 
-<html lang="es" class="dark">
+<html lang="es">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>FB Store — Dashboard</title>
     <ClientRouter />
+    <script>
+      (function() {
+        var theme = localStorage.getItem('theme')
+        if (theme === 'light' || (!theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.classList.remove('dark')
+        } else {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
   </head>
   <body>
     <AppLayout client:load>
