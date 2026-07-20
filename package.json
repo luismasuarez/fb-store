@@ -14,6 +14,7 @@
     "db:studio": "pnpm --filter @fb-store/scraper db:studio"
   },
   "devDependencies": {
+    "shadcn": "^4.13.1",
     "tsx": "^4.22.3",
     "typescript": "6.0.3"
   },

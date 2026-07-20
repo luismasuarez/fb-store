@@ -228,6 +228,7 @@ export type RawPostOrderByWithRelationInput = {
 
 export type RawPostWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  fbPostId_groupId?: Prisma.RawPostFbPostIdGroupIdCompoundUniqueInput
   AND?: Prisma.RawPostWhereInput | Prisma.RawPostWhereInput[]
   OR?: Prisma.RawPostWhereInput[]
   NOT?: Prisma.RawPostWhereInput | Prisma.RawPostWhereInput[]
@@ -240,7 +241,7 @@ export type RawPostWhereUniqueInput = Prisma.AtLeast<{
   aiProvider?: Prisma.StringNullableFilter<"RawPost"> | string | null
   scrapedAt?: Prisma.DateTimeFilter<"RawPost"> | Date | string
   listing?: Prisma.XOR<Prisma.ListingNullableScalarRelationFilter, Prisma.ListingWhereInput> | null
-}, "id">
+}, "id" | "fbPostId_groupId">
 
 export type RawPostOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -363,6 +364,11 @@ export type RawPostListRelationFilter = {
 
 export type RawPostOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type RawPostFbPostIdGroupIdCompoundUniqueInput = {
+  fbPostId: string
+  groupId: string
 }
 
 export type RawPostCountOrderByAggregateInput = {
