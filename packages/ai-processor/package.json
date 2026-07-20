@@ -1,0 +1,20 @@
+{
+  "name": "@fb-store/ai-processor",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fb-store/shared": "workspace:*",
+    "dotenv": "^17.4.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "vitest": "^4.1.10"
+  }
+}

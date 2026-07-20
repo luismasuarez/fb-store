@@ -33,6 +33,7 @@ export {
   Search,
   Settings,
   Shield,
+  Sparkles,
   Sun,
   Trash2,
   User,
