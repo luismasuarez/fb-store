@@ -22,7 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="flex min-h-svh w-full flex-col">
+      <main className="flex min-h-svh min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center gap-4 border-b border-sidebar-border px-4 lg:px-6">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
