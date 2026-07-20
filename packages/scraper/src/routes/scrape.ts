@@ -211,4 +211,13 @@ scrapeRoute.get("/scrape/active/:profile", async (c: Context<{ Variables: { requ
   });
 });
 
+scrapeRoute.get("/scrape-logs", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const prisma = getPrismaClient();
+  const logs = await prisma.scrapeLog.findMany({
+    orderBy: { startedAt: "desc" },
+    take: 50,
+  });
+  return c.json({ data: logs });
+});
+
 export default scrapeRoute;

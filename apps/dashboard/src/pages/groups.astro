@@ -1,0 +1,14 @@
+---
+import Layout from "@/layouts/main.astro"
+import GroupTable from "@/components/groups/GroupTable"
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-heading font-semibold tracking-tight">Groups</h1>
+      <p class="text-sm text-muted-foreground">Manage Facebook groups to scrape.</p>
+    </div>
+    <GroupTable client:load />
+  </div>
+</Layout>
