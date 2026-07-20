@@ -83,7 +83,7 @@ export default function ListingDetailPage({ id }: { id: string }) {
   const l = data
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="space-y-4">
       <Button variant="ghost" onClick={goBack}>
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Listings
