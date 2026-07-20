@@ -7,8 +7,11 @@
     "build": "pnpm --filter @fb-store/scraper build",
     "start": "pnpm --filter @fb-store/scraper start",
     "test": "pnpm --filter @fb-store/scraper test",
-    "db:generate": "cd packages/scraper && npx prisma generate",
-    "db:push": "cd packages/scraper && DATABASE_URL=postgresql://fbstore:fbstore@localhost:5432/fbstore npx prisma db push"
+    "db:generate": "pnpm --filter @fb-store/scraper db:generate",
+    "db:push": "pnpm --filter @fb-store/scraper db:push",
+    "db:migrate": "pnpm --filter @fb-store/scraper db:migrate",
+    "db:reset": "pnpm --filter @fb-store/scraper db:reset",
+    "db:studio": "pnpm --filter @fb-store/scraper db:studio"
   },
   "devDependencies": {
     "tsx": "^4.22.3",

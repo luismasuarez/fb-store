@@ -96,6 +96,10 @@
     </div>
     <div id="new-group-form" style="display:none;margin-bottom:0.75rem">
       <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label for="group-name">Name</label>
+          <input type="text" id="group-name" placeholder="My Group (defaults to group ID)" style="width:100%">
+        </div>
         <div class="form-group" style="flex:2">
           <label for="group-url">Facebook Group URL</label>
           <input type="text" id="group-url" placeholder="https://facebook.com/groups/..." style="width:100%">
@@ -104,7 +108,7 @@
           <label for="group-maxPosts">Max Posts</label>
           <input type="number" id="group-maxPosts" value="30" min="1" max="200">
         </div>
-        <button onclick="createGroup()" class="primary" style="padding:0.35rem 0.75rem">Create</button>
+        <button id="group-form-btn" onclick="saveGroup()" class="primary" style="padding:0.35rem 0.75rem">Create</button>
         <button onclick="hideNewGroupForm()" style="padding:0.35rem 0.75rem">Cancel</button>
       </div>
       <div id="group-creation-msg" style="margin-top:0.4rem;font-size:0.8rem"></div>
@@ -117,6 +121,7 @@
   <script>
     const API_KEY = "__SCRAPER_API_KEY__";
     const BASE = "/api/v1";
+    let editingGroupId = null;
 
     function apiHeaders() {
       return { "x-api-key": API_KEY, "Content-Type": "application/json" };
@@ -315,6 +320,7 @@
           <td style="font-size:0.75rem">${lastScraped}</td>
           <td class="actions">
             <button onclick="scrapeGroup('${id}','${name}',${maxPosts})" class="primary" style="padding:0.3rem 0.6rem;font-size:0.8rem">Scrape</button>
+            <button onclick="editGroup('${id}')" style="padding:0.3rem 0.6rem;font-size:0.8rem">Edit</button>
             <button onclick="deleteGroup('${id}','${name}',this)" style="color:#fca5a5;padding:0.3rem 0.6rem;font-size:0.8rem">Delete</button>
           </td>
         </tr>`;
@@ -323,25 +329,58 @@
       container.innerHTML = `<table><thead><tr><th>Name</th><th>Group ID</th><th>Max Posts</th><th>Status</th><th>Last Scraped</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
-    function showNewGroupForm() {
+    function showNewGroupForm(group) {
       document.getElementById("new-group-btn").style.display = "none";
       document.getElementById("new-group-form").style.display = "block";
-      document.getElementById("group-url").value = "";
-      document.getElementById("group-maxPosts").value = "30";
       document.getElementById("group-creation-msg").innerHTML = "";
-      document.getElementById("group-url").focus();
+
+      if (group) {
+        editingGroupId = group.id;
+        document.getElementById("group-name").value = group.name;
+        document.getElementById("group-url").value = "";
+        document.getElementById("group-url").placeholder = "(leave empty when editing)";
+        document.getElementById("group-maxPosts").value = group.maxPosts;
+        document.getElementById("group-form-btn").textContent = "Update";
+        document.getElementById("group-name").focus();
+      } else {
+        editingGroupId = null;
+        document.getElementById("group-name").value = "";
+        document.getElementById("group-url").value = "";
+        document.getElementById("group-url").placeholder = "https://facebook.com/groups/...";
+        document.getElementById("group-maxPosts").value = "30";
+        document.getElementById("group-form-btn").textContent = "Create";
+        document.getElementById("group-url").focus();
+      }
     }
 
     function hideNewGroupForm() {
       document.getElementById("new-group-btn").style.display = "";
       document.getElementById("new-group-form").style.display = "none";
       document.getElementById("group-creation-msg").innerHTML = "";
+      editingGroupId = null;
     }
 
-    async function createGroup() {
+    async function saveGroup() {
+      const name = document.getElementById("group-name").value.trim();
       const url = document.getElementById("group-url").value.trim();
       const maxPosts = parseInt(document.getElementById("group-maxPosts").value, 10) || 30;
       const msgDiv = document.getElementById("group-creation-msg");
+
+      if (editingGroupId) {
+        const body = { name, maxPosts };
+        if (name) body.name = name;
+        const res = await apiFetch("/groups/" + encodeURIComponent(editingGroupId), {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          hideNewGroupForm();
+          loadGroups();
+        } else {
+          msgDiv.innerHTML = `<span class="error-text">${escapeHtml(res.data?.error?.message || "Update failed")}</span>`;
+        }
+        return;
+      }
 
       const groupId = extractGroupIdFromUrl(url);
       if (!groupId) {
@@ -351,7 +390,7 @@
 
       const res = await apiFetch("/groups", {
         method: "POST",
-        body: JSON.stringify({ id: groupId, name: groupId, maxPosts }),
+        body: JSON.stringify({ id: groupId, name: name || groupId, maxPosts }),
       });
 
       if (res.ok) {
@@ -379,6 +418,13 @@
         btn.disabled = false;
         btn.textContent = "Delete";
       }
+    }
+
+    async function editGroup(id) {
+      const res = await apiFetch("/groups/" + encodeURIComponent(id));
+      if (!res.ok) { alert("Failed to load group"); return; }
+      const group = res.data.data;
+      showNewGroupForm(group);
     }
 
     async function scrapeGroup(id, name, maxPosts) {
