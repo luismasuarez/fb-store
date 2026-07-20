@@ -118,11 +118,19 @@ export class ScrapeService {
   private async chainAfterScrape(jobId: string): Promise<void> {
     try {
       const job = await this.waitForJob(jobId);
+
+      if (job?.status === "failed") {
+        this.logger.warn(`Job ${jobId} completed with failed status, skipping AI chain`);
+        return;
+      }
+
       if (job?.status !== "completed") return;
 
       const postsNew = job?.result?.metrics?.postsNew ?? 0;
       if (postsNew > 0) {
         await this.aiProcessorService.triggerProcessing();
+      } else {
+        this.logger.log(`Job ${jobId} completed with 0 new posts, skipping AI chain`);
       }
     } catch (err) {
       this.logger.error(`chainAfterScrape failed for job ${jobId}: ${(err as Error).message}`);

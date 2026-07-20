@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useScrape, useAiProcess } from "../../hooks/use-scrape";
-import { fetchGroups } from "../../lib/api";
+import { fetchGroups, triggerScrapeAllGroups } from "../../lib/api";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -10,6 +10,9 @@ export function ScrapeControls() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const { mutate, isPending, isError, error, sse } = useScrape();
   const aiMutation = useAiProcess();
+  const [allScraping, setAllScraping] = useState(false);
+  const [allComplete, setAllComplete] = useState(false);
+  const [allError, setAllError] = useState<string | null>(null);
 
   const { data: groupsData } = useQuery({
     queryKey: ["groups"],
@@ -18,14 +21,24 @@ export function ScrapeControls() {
 
   const activeGroups = groupsData?.data.filter((g) => g.isActive) ?? [];
 
-  const isRunning = isPending || sse.status === "running";
+  const isRunning = isPending || sse.status === "running" || allScraping;
   const progressPct = sse.total > 0 ? Math.round((sse.current / sse.total) * 100) : 0;
 
-  function handleScrape() {
+  async function handleScrape() {
     if (selectedGroupId) {
       mutate({ groupId: selectedGroupId });
     } else {
-      mutate({});
+      setAllScraping(true);
+      setAllComplete(false);
+      setAllError(null);
+      try {
+        await triggerScrapeAllGroups();
+        setAllComplete(true);
+      } catch (err: any) {
+        setAllError(err?.message || "Error scraping all groups");
+      } finally {
+        setAllScraping(false);
+      }
     }
   }
 
@@ -73,6 +86,20 @@ export function ScrapeControls() {
           </Button>
         </div>
 
+        {allScraping && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Scrapeando todos los grupos...</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full animate-pulse rounded-full bg-primary"
+                style={{ width: "100%" }}
+              />
+            </div>
+          </div>
+        )}
+
         {sse.status === "running" && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -95,6 +122,20 @@ export function ScrapeControls() {
             {sse.logs.map((msg, i) => (
               <div key={i}>{msg}</div>
             ))}
+          </div>
+        )}
+
+        {allComplete && (
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Todos los grupos scrapeados exitosamente
+          </div>
+        )}
+
+        {allError && (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Error: {allError}
           </div>
         )}
 

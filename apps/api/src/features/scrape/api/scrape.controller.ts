@@ -18,6 +18,12 @@ export class ScrapeController {
     return this.scrapeService.triggerScrape(body?.groupId, body?.maxPosts);
   }
 
+  @Post("all")
+  @HttpCode(202)
+  async triggerAll() {
+    return this.scrapeService.triggerScrapeForAllGroups();
+  }
+
   @Get(":jobId/events")
   async streamEvents(
     @Param("jobId") jobId: string,
