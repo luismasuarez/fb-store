@@ -249,3 +249,12 @@ Task: T040-T041 — job-tracker.ts
 - Verify tests fail before implementing
 - Stop at any checkpoint to validate story independently
 - After Phase 3 (US1), the pipeline scrape → AI is restored — the core problem is solved
+
+---
+
+## Phase 8: Convergence
+
+**Purpose**: Close gaps identified during convergence assessment between spec requirements and current implementation
+
+- [X] T050 Expose `triggerScrapeForAllGroups()` via a new POST endpoint in `apps/api/src/features/scrape/api/scrape.controller.ts` and update `apps/admin/src/components/dashboard/scrape-controls.tsx` to call it when "Todos los grupos" is selected per US3/AC3 (partial)
+- [X] T051 Add `this.logger.log()` calls in `chainAfterScrape()` in `apps/api/src/features/scrape/application/scrape.service.ts` when polling detects `postsNew === 0` (FR-008) and when status is "failed" (FR-009) (partial)
