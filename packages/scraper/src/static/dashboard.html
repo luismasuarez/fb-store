@@ -140,6 +140,7 @@
           <td class="actions">
             <button onclick="checkSession('${name}',this)">Check</button>
             <button onclick="loginProfile('${name}')">Login</button>
+            <button onclick="deleteProfile('${name}',this)" style="color:#fca5a5">Delete</button>
           </td>
         </tr>`;
       }).join("");
@@ -198,6 +199,22 @@
       const alive = r.alive ? "alive" : "dead";
       alert(`Session: ${alive}\nReason: ${r.reason}\nChecked: ${r.checkedAt}`);
       loadProfiles();
+    }
+
+    async function deleteProfile(name, btn) {
+      if (!confirm(`Delete account "${name}"? This cannot be undone.`)) return;
+      btn.disabled = true;
+      btn.textContent = "Deleting...";
+      const res = await apiFetch("/profiles/" + encodeURIComponent(name), {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        loadProfiles();
+      } else {
+        alert("Delete failed: " + (res.data?.error?.message || res.status));
+        btn.disabled = false;
+        btn.textContent = "Delete";
+      }
     }
 
     async function loginProfile(name) {
