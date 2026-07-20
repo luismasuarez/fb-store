@@ -1,6 +1,7 @@
 ---
 import "@/styles/global.css"
 import AppLayout from "@/components/layout/AppLayout"
+import { ClientRouter } from "astro:transitions"
 ---
 
 <html lang="es" class="dark">
@@ -9,6 +10,7 @@ import AppLayout from "@/components/layout/AppLayout"
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>FB Store — Dashboard</title>
+    <ClientRouter />
   </head>
   <body>
     <AppLayout client:load>

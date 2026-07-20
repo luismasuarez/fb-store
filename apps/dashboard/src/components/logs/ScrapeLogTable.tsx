@@ -2,17 +2,18 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { FileText } from "@/lib/icon"
+import { FileText, AlertCircle } from "@/lib/icon"
+import { api } from "@/lib/api"
 import type { ScrapeLog } from "@/lib/types"
 
 export default function ScrapeLogTable() {
   const [logs, setLogs] = useState<ScrapeLog[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/v1/scrape-logs")
-      .then((r) => r.json())
-      .then((d) => setLogs((d.data ?? d) ?? []))
-      .catch(() => setLogs([]))
+    api.logs.list()
+      .then((data) => setLogs(data))
+      .catch((err) => { setError(err.message); setLogs([]) })
   }, [])
 
   return (
@@ -24,6 +25,12 @@ export default function ScrapeLogTable() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-500">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
         {!logs ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}

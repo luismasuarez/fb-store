@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
-import { Plus, Trash2, LogIn, Eye } from "@/lib/icon"
+import { Plus, Trash2, LogIn, Eye, Loader2 } from "@/lib/icon"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import StatusBadge from "@/components/shared/StatusBadge"
@@ -19,6 +19,7 @@ export default function AccountTable() {
   const [creating, setCreating] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null)
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
 
   function load() {
     api.profiles.list().then(setProfiles).catch(() => setProfiles([]))
@@ -46,22 +47,28 @@ export default function AccountTable() {
   }
 
   async function checkSession(name: string) {
+    setPendingAction(`check-${name}`)
     try {
       const r = await api.profiles.check(name)
       toast.info(`Session: ${r.alive ? "alive" : "dead"} — ${r.reason}`)
       load()
     } catch (err: any) {
       toast.error(err.message)
+    } finally {
+      setPendingAction(null)
     }
   }
 
   async function loginProfile(name: string) {
+    setPendingAction(`login-${name}`)
     try {
       const r = await api.login.start(name)
       if (r.vncUrl) window.open(r.vncUrl, "_blank", "width=1280,height=800")
       toast.success(`Login started for "${name}"`)
     } catch (err: any) {
       toast.error(err.message)
+    } finally {
+      setPendingAction(null)
     }
   }
 
@@ -145,12 +152,29 @@ export default function AccountTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="outline" size="sm" onClick={() => checkSession(p.name)}>
-                          Check
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={pendingAction === `check-${p.name}`}
+                          onClick={() => checkSession(p.name)}
+                        >
+                          {pendingAction === `check-${p.name}` ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Check"
+                          )}
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => loginProfile(p.name)}>
-                          <LogIn className="mr-1 h-3 w-3" />
-                          Login
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={pendingAction === `login-${p.name}`}
+                          onClick={() => loginProfile(p.name)}
+                        >
+                          {pendingAction === `login-${p.name}` ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <><LogIn className="mr-1 h-3 w-3" />Login</>
+                          )}
                         </Button>
                         <Button
                           variant="outline"

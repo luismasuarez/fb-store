@@ -6,6 +6,7 @@ import type {
   JobState,
   LoginSession,
   ScheduleConfig,
+  ScrapeLog,
 } from './types'
 
 const BASE = import.meta.env.PUBLIC_API_URL ?? ''
@@ -57,6 +58,10 @@ export const api = {
     start: (profile: string) => request<LoginSession>('/login', { method: 'POST', body: JSON.stringify({ profile }) }),
     status: (profile: string) => request<LoginSession>(`/login/${encodeURIComponent(profile)}/status`),
     complete: (profile: string) => request<LoginSession>(`/login/${encodeURIComponent(profile)}/complete`, { method: 'POST' }),
+  },
+
+  logs: {
+    list: () => request<ScrapeLog[]>('/scrape-logs'),
   },
 
   schedule: {
