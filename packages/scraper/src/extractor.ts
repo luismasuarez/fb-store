@@ -6,6 +6,7 @@ export interface RawPost {
   authorUrl: string;
   timestamp: string;
   postUrl: string;
+  _debugImgs?: { src: string; dataSrc: string; w: number; h: number; visible: boolean }[];
 }
 
 export const EXTRACTOR_SCRIPT = `
@@ -31,10 +32,38 @@ export const EXTRACTOR_SCRIPT = `
     seen.set(photoId, true);
 
     var imgs = [];
-    var imgEls = el.querySelectorAll('img[src*="scontent"]');
-    for (var n = 0; n < imgEls.length; n++) {
-      var src = imgEls[n].src;
-      if (src.indexOf("/") > -1) imgs.push(src);
+    var debugImgs = [];
+
+    // Debug: dump ALL img elements in this post
+    var allImgEls = el.querySelectorAll('img');
+    for (var n = 0; n < allImgEls.length; n++) {
+      var img = allImgEls[n];
+      var src = img.src || "";
+      var dataSrc = img.getAttribute("data-src") || "";
+      var rect = img.getBoundingClientRect();
+      debugImgs.push({
+        src: src.substring(0, 120),
+        dataSrc: dataSrc.substring(0, 120),
+        w: Math.round(img.offsetWidth),
+        h: Math.round(img.offsetHeight),
+        visible: rect.width > 0 && rect.height > 0,
+      });
+
+      // Try to collect image URLs from multiple sources
+      var candidates = [src, dataSrc];
+      if (window.getComputedStyle) {
+        var bg = window.getComputedStyle(img).backgroundImage || "";
+        if (bg && bg.indexOf("fbcdn") > -1) {
+          var m = bg.match(/url\("?(.*?)"?\)/);
+          if (m) candidates.push(m[1]);
+        }
+      }
+      for (var c = 0; c < candidates.length; c++) {
+        var candidate = candidates[c];
+        if (candidate && candidate.indexOf("/") > -1) {
+          imgs.push(candidate);
+        }
+      }
     }
 
     var rawText = (el.innerText || "").trim();
@@ -48,6 +77,7 @@ export const EXTRACTOR_SCRIPT = `
       fbPostId: "fb-" + photoId,
       text: cleanText || "(solo imagenes)",
       images: imgs,
+      _debugImgs: debugImgs,
       author: authorLink ? (authorLink.textContent || "").split("\\n")[0].trim() : "",
       authorUrl: authorLink ? authorLink.getAttribute("href") : "",
       timestamp: abbr ? (abbr.getAttribute("title") || abbr.textContent) : (timeEl ? timeEl.textContent : ""),

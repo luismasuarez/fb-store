@@ -59,6 +59,24 @@ export async function scrapeGroup(
     const posts: RawPost[] = Array.isArray(raw) ? raw : [];
     const valid = posts.filter((p) => p.text.length > 20);
     console.log(`📦 ${valid.length} posts extraídos`);
+
+    // Debug: show image info for each post
+    for (let di = 0; di < valid.length; di++) {
+      const p = valid[di];
+      const dbg = (p as any)._debugImgs;
+      if (Array.isArray(dbg)) {
+        const totalInDOM = dbg.length;
+        const visible = dbg.filter((x: any) => x.visible).length;
+        const withFbcdn = dbg.filter((x: any) => x.src.includes("fbcdn") || x.dataSrc.includes("fbcdn")).length;
+        console.log(`🔍 Post ${di}: total <img>=${totalInDOM}, visibles=${visible}, con fbcdn=${withFbcdn}, images[]=${p.images.length}`);
+        if (totalInDOM > 0) {
+          console.log(`🔍 Muestra:`, JSON.stringify(dbg.slice(0, 5), null, 2));
+        }
+      } else {
+        console.log(`🔍 Post ${di}: sin _debugImgs, images[]=${p.images.length}`);
+      }
+    }
+
     onProgress?.("extracting", 1, 1);
 
     // Open photo viewer + carousel to capture all images per post
