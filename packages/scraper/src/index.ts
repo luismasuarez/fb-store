@@ -61,7 +61,7 @@ export async function scrapeGroup(
     console.log(`📦 ${valid.length} posts extraídos`);
     onProgress?.("extracting", 1, 1);
 
-    // Open photo viewer for each post to capture all carousel images
+    // Open photo viewer + carousel to capture all images per post
     for (let i = 0; i < valid.length; i++) {
       const post = valid[i];
       if (!Array.isArray(post.images) || post.images.length === 0) continue;
@@ -71,25 +71,49 @@ export async function scrapeGroup(
         const firstImg = postEl.locator('img[src*="scontent"]').first();
         if (await firstImg.count() === 0) continue;
 
+        // 1st click: open photo viewer
         await firstImg.click({ timeout: 3000 });
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(2000);
+
+        // 2nd click on the image inside the viewer to open full carousel
+        await page.evaluate(() => {
+          const img = document.querySelector<HTMLElement>(
+            '[role="dialog"] img[src*="scontent"], [role="presentation"] img[src*="scontent"]'
+          );
+          img?.click();
+        });
+        await page.waitForTimeout(2000);
 
         const urls = new Set<string>();
         let prevSrc = "";
+        let stuckCount = 0;
+
         for (let n = 0; n < 50; n++) {
           const src = await page.evaluate(() => {
-            const img = document.querySelector(
+            const img = document.querySelector<HTMLImageElement>(
               '[role="dialog"] img[src*="scontent"], [role="presentation"] img[src*="scontent"]'
             );
-            return (img as HTMLImageElement)?.src || "";
+            return img?.src || "";
           });
           if (src) urls.add(src);
-          if (n > 0 && src === prevSrc) break;
+
+          if (n > 0) {
+            if (src === prevSrc) {
+              stuckCount++;
+              if (stuckCount >= 3) break;
+            } else {
+              stuckCount = 0;
+            }
+          }
           prevSrc = src;
+
           await page.keyboard.press("ArrowRight");
-          await page.waitForTimeout(600);
+          await page.waitForTimeout(800);
         }
 
+        // Close viewer (Escape twice: carousel → viewer, viewer → feed)
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(800);
         await page.keyboard.press("Escape");
         await page.waitForTimeout(500);
 
