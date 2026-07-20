@@ -7,5 +7,6 @@ export default defineConfig({
   },
   datasource: {
     url: process.env.DATABASE_URL ?? 'postgresql://fbstore:fbstore@localhost:5432/fbstore',
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL ?? 'postgresql://fbstore:fbstore@localhost:5432/fbstore_shadow',
   },
 })

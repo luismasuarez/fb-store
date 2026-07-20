@@ -128,6 +128,7 @@ model RawPost {
 
   listing Listing? @relation(fields: [listingId], references: [id])
 
+  @@unique([fbPostId, groupId])
   @@index([processed])
   @@index([fbPostId])
   @@map("raw_posts")
