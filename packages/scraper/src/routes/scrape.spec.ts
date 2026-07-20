@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
 
-vi.mock("@fb-store/shared", () => ({
+vi.mock("../db", () => ({
   getPrismaClient: vi.fn(),
 }));
 vi.mock("../services/job-tracker");
 vi.mock("../services/scrape-runner");
 
-import { getPrismaClient } from "@fb-store/shared";
+import { getPrismaClient } from "../db";
 import { createJob, getJob, getActiveJobForProfile, updateJob, registerSSE, notifyClients, removeSSE, onJobCompletion, removeJobCompletion } from "../services/job-tracker";
 import { runScrape } from "../services/scrape-runner";
 import { errorHandler } from "../middleware/error-handler";
@@ -168,7 +168,9 @@ describe("POST /api/v1/scrape", () => {
       body: JSON.stringify({ url: "https://facebook.com/groups/789" }),
     });
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.alreadyRunning).toBe(true);
   });
 });
 

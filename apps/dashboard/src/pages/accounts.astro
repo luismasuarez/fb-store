@@ -1,0 +1,14 @@
+---
+import Layout from "@/layouts/main.astro"
+import AccountTable from "@/components/accounts/AccountTable"
+---
+
+<Layout>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-heading font-semibold tracking-tight">Accounts</h1>
+      <p class="text-sm text-muted-foreground">Manage Facebook profiles used for scraping.</p>
+    </div>
+    <AccountTable client:load />
+  </div>
+</Layout>

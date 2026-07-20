@@ -1,7 +1,8 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
 config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
-import { getPrismaClient, sanitizeFacebookText } from "@fb-store/shared";
+import { getPrismaClient } from "./db";
+import { sanitizeFacebookText } from "./sanitize";
 import { createContext } from "./browser";
 import { EXTRACTOR_SCRIPT } from "./extractor";
 import type { RawPost } from "./extractor";

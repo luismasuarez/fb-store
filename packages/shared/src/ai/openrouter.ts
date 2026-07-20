@@ -1,83 +1,73 @@
-import type { AIProvider, StructuredPropertyListing } from "./provider";
-import { PROMPT_SYSTEM } from "./registry";
+import type { StructuredPropertyListing } from "./types"
+import { getSystemPrompt, getUserPrompt } from "./registry"
 
-const MAX_RETRIES = 2;
-const BASE_DELAY_MS = 2000;
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 30_000
+const MAX_RETRIES = 2
 
-export class OpenRouterProvider implements AIProvider {
-  readonly name = "openrouter";
+export interface OpenRouterConfig {
+  apiKey: string
+  model: string
+}
 
-  constructor(
-    private apiKey: string,
-    private model: string,
-  ) {}
+export async function extractWithOpenRouter(
+  text: string,
+  config: OpenRouterConfig,
+): Promise<StructuredPropertyListing> {
+  const truncated = text.length > 8000 ? text.slice(0, 8000) : text
+  let lastError: Error | null = null
 
-  async extract(rawText: string, _imageUrls?: string[]): Promise<StructuredPropertyListing> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-        await new Promise((r) => setTimeout(r, delay));
-      }
-
-      try {
-        return await this._call(rawText);
-      } catch (err: any) {
-        lastError = err;
-        if (err?.message?.startsWith("OpenRouter 4")) {
-          throw err;
-        }
-      }
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2000))
+    try {
+      return await callOpenRouter(truncated, config)
+    } catch (err: any) {
+      lastError = err
     }
-
-    throw lastError;
   }
 
-  private async _call(rawText: string): Promise<StructuredPropertyListing> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  throw lastError ?? new Error("OpenRouter extraction failed")
+}
 
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://fbstore.app",
-          "X-OpenRouter-Title": "FB Store",
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: "system", content: PROMPT_SYSTEM },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: rawText.substring(0, 8000) },
-              ],
-            },
-          ],
-          response_format: { type: "json_object" },
-        }),
-        signal: controller.signal,
-      });
+async function callOpenRouter(
+  text: string,
+  config: OpenRouterConfig,
+): Promise<StructuredPropertyListing> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`OpenRouter ${res.status}: ${body}`);
-      }
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://fbstore.app",
+        "X-OpenRouter-Title": "FB Store",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: "system", content: getSystemPrompt() },
+          { role: "user", content: getUserPrompt(text) },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        max_tokens: 2000,
+      }),
+      signal: controller.signal,
+    })
 
-      const data: any = await res.json();
-      const content: string | undefined = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new Error("OpenRouter: empty response");
-      }
-
-      return JSON.parse(content) as StructuredPropertyListing;
-    } finally {
-      clearTimeout(timer);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      throw new Error(`OpenRouter HTTP ${res.status}: ${body.slice(0, 200)}`)
     }
+
+    const json = await res.json()
+    const content = json?.choices?.[0]?.message?.content
+    if (!content) throw new Error("Empty response from OpenRouter")
+
+    return JSON.parse(content) as StructuredPropertyListing
+  } finally {
+    clearTimeout(timer)
   }
 }

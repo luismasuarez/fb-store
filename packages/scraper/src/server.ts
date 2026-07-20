@@ -12,6 +12,10 @@ import healthRoute from "./routes/health";
 import scrapeRoute from "./routes/scrape";
 import profilesRoute from "./routes/profiles";
 import loginRoute from "./routes/login";
+import groupsRoute from "./routes/groups";
+import scheduleRoute, { startScheduler } from "./routes/schedule";
+import listingsRoute from "./routes/listings";
+import aiRoute from "./routes/ai";
 
 const PORT = Number(process.env.PORT) || 3001;
 const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY;
@@ -53,8 +57,14 @@ app.route("/api/v1", healthRoute);
 app.route("/api/v1", scrapeRoute);
 app.route("/api/v1", profilesRoute);
 app.route("/api/v1", loginRoute);
+app.route("/api/v1", groupsRoute);
+app.route("/api/v1", scheduleRoute);
+app.route("/api/v1", listingsRoute);
+app.route("/api/v1", aiRoute);
 
 app.onError(errorHandler);
+
+startScheduler();
 
 serve({
   fetch: app.fetch,

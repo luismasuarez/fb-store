@@ -1,25 +1,19 @@
-const COMMENT_PATTERNS = [
-  /^Comentar como\s/i,
-  /^Ver más comentarios/i,
-  /^Ver\s+\d+\s+respuesta/i,
-  /^Todas las\s*:/,
-  /\b(Me gusta|Comentar|Compartir)\s*$/,
-];
+const COMMENT_LINES = [
+  /^Comentar como.*$/gim,
+  /^Ver m\u00e1s comentarios.*$/gim,
+  /^Me gusta$/gim,
+  /^Reacciona.*$/gim,
+  /^Compartir.*$/gim,
+  /^\d+ comentarios.*$/gim,
+  /^\d+ veces compartido.*$/gim,
+  /^Te gusta.*$/gim,
+  /^Escribe un comentario.*$/gim,
+]
 
-function isCommentLine(line: string): boolean {
-  const trimmed = line.trim();
-  if (!trimmed) return true;
-  if (COMMENT_PATTERNS.some((p) => p.test(trimmed))) return true;
-  if (/^\w[\wáéíóúñÁÉÍÓÚÑ\s]+\d+\s*(h|min|días?|sem|mes)\s*(Me gusta|Responder)/i.test(trimmed)) return true;
-  if (/^\d+\.\d+[Kk]?\s*(me gusta|compartido|comentarios|reacciones?)/i.test(trimmed)) return true;
-  return false;
-}
-
-export function cleanPostText(raw: string): string {
-  return raw
-    .split("\n")
-    .filter((line) => !isCommentLine(line))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+export function cleanPostText(text: string): string {
+  let cleaned = text
+  for (const pattern of COMMENT_LINES) {
+    cleaned = cleaned.replace(pattern, "")
+  }
+  return cleaned.replace(/\n{3,}/g, "\n\n").trim()
 }

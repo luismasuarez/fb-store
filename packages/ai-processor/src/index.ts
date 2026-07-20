@@ -1,135 +1,92 @@
-import { getPrismaClient } from "@fb-store/shared";
-import { loadConfig } from "./config";
-import { createExtractor } from "./extractor";
-import { mapToListing } from "./mapper";
-import { downloadImagesAsBase64 } from "./image-downloader";
-import * as db from "./db";
+import { Extractor } from "@fb-store/shared"
+import { getAiConfig, reloadAiConfig } from "./config"
+import { getPendingPosts, markProcessed, markDuplicate, createListing, updateListingImages } from "./db"
+import { cleanPostText } from "./cleaner"
+import { mapToListing } from "./mapper"
+import { downloadImagesAsBase64 } from "./image-downloader"
 
-export { db };
+const POLL_INTERVAL_MS = 10_000
+const MIN_TEXT_LENGTH = 20
 
-export interface AiProcessMetrics {
-  processed: number;
-  created: number;
-  errors: number;
-}
-
-export async function getPendingPosts(batchSize: number): Promise<db.RawPostRow[]> {
-  return db.getPendingPosts(batchSize);
-}
-
-export async function processPost(
-  post: db.RawPostRow,
-  extractor: { extract(text: string): Promise<any> },
-): Promise<string | null> {
-  const text = post.textContent || "";
-  if (text.length < 20) {
-    await db.markSkipped(post.id);
-    return null;
-  }
-
+export async function processPost(post: any): Promise<{ ok: boolean; error?: string }> {
   try {
-    const r = await extractor.extract(text);
-    const data = mapToListing(r, post);
-    const listingId = await db.createListing(data);
-
-    const imagesData = await downloadImagesAsBase64(post.rawData?.images || []);
-    if (imagesData.some((img) => img.data)) {
-      await db.updateListingImages(listingId, imagesData);
+    const config = getAiConfig()
+    const text = cleanPostText(post.textContent || post.rawData?.text || "")
+    if (text.length < MIN_TEXT_LENGTH) {
+      await markDuplicate(post.id)
+      return { ok: true }
     }
 
-    await db.markProcessed(post.id);
-    return post.fbPostId;
+    const extractor = new Extractor(config.provider, config.apiKey, config.model)
+    const aiResult = await extractor.extract(text)
+    const listingData = mapToListing(aiResult, post)
+
+    let listing: any
+    try {
+      listing = await createListing(listingData)
+    } catch (err: any) {
+      if (err?.code === "P2002") {
+        await markDuplicate(post.id)
+        return { ok: true }
+      }
+      throw err
+    }
+
+    const postRawData = post.rawData || {}
+    const imageUrls: string[] = Array.isArray(postRawData.images)
+      ? postRawData.images.map((img: any) => (typeof img === "string" ? img : img.url)).filter(Boolean)
+      : []
+
+    if (imageUrls.length > 0) {
+      const images = await downloadImagesAsBase64(imageUrls)
+      await updateListingImages(listing.id, images)
+    }
+
+    await markProcessed(post.id, listing.id)
+    return { ok: true }
   } catch (err: any) {
-    if (err?.code === "P2002") {
-      await db.markDuplicate(post.id);
-      return null;
-    }
-    throw err;
+    return { ok: false, error: err.message }
   }
 }
 
-export async function processBatch(
-  rawPostIds?: string[],
-): Promise<AiProcessMetrics> {
-  const cfg = loadConfig();
-  const extractor = createExtractor(cfg.providerName, cfg.apiKey, cfg.model);
-  getPrismaClient();
+export async function processBatch(): Promise<{ processed: number; errors: number }> {
+  const config = getAiConfig()
+  const posts = await getPendingPosts(config.batchSize)
+  if (posts.length === 0) return { processed: 0, errors: 0 }
 
-  let totalProcessed = 0;
-  let totalCreated = 0;
-  let totalErrors = 0;
+  let processed = 0
+  let errors = 0
 
-  if (rawPostIds && rawPostIds.length > 0) {
-    for (const postId of rawPostIds) {
-      const posts = await db.getPendingPosts(1);
-      const post = posts.find((p) => p.id === postId);
-      if (!post) continue;
-
-      try {
-        const created = await processPost(post, extractor);
-        if (created) totalCreated++;
-        totalProcessed++;
-      } catch (err: any) {
-        console.error(`❌ Error post ${post.fbPostId}:`, err.message);
-        totalErrors++;
-      }
-    }
-  } else {
-    while (true) {
-      const posts = await db.getPendingPosts(cfg.batchSize);
-      if (!posts.length) break;
-
-      for (const post of posts) {
-        try {
-          const created = await processPost(post, extractor);
-          if (created) totalCreated++;
-          totalProcessed++;
-        } catch (err: any) {
-          console.error(`❌ Error post ${post.fbPostId}:`, err.message);
-          totalErrors++;
-        }
-      }
-    }
+  for (const post of posts) {
+    const result = await processPost(post)
+    if (result.ok) processed++
+    else errors++
   }
 
-  return { processed: totalProcessed, created: totalCreated, errors: totalErrors };
+  return { processed, errors }
 }
 
-export async function main() {
-  const cfg = loadConfig();
-  console.log(`🤖 AI Processor — provider=${cfg.providerName} model=${cfg.model}`);
-
-  const extractor = createExtractor(cfg.providerName, cfg.apiKey, cfg.model);
-  getPrismaClient();
-
-  let totalProcessed = 0;
-  let totalCreated = 0;
-  let totalErrors = 0;
+export async function main(): Promise<void> {
+  console.log(JSON.stringify({ level: "info", msg: "AI Processor started", pollIntervalMs: POLL_INTERVAL_MS }))
 
   while (true) {
-    const posts = await db.getPendingPosts(cfg.batchSize);
-    if (!posts.length) {
-      console.log("\n✅ No hay más posts sin procesar");
-      break;
+    try {
+      reloadAiConfig()
+      const result = await processBatch()
+      if (result.processed > 0 || result.errors > 0) {
+        console.log(JSON.stringify({ level: "info", msg: "Batch complete", ...result }))
+      }
+    } catch (err: any) {
+      console.error(JSON.stringify({ level: "error", msg: err.message }))
     }
 
-    console.log(`\n📦 Lote de ${posts.length} posts...`);
-
-    for (const post of posts) {
-      const created = await processPost(post, extractor).catch((err) => {
-        console.error(`❌ Error post ${post.fbPostId}:`, err.message);
-        totalErrors++;
-        return null;
-      });
-      if (created) totalCreated++;
-      totalProcessed++;
-    }
-
-    console.log(`   → procesados: ${totalProcessed} | listings: ${totalCreated} | errores: ${totalErrors}`);
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
   }
+}
 
-  console.log(`\n🏁 AI Processor finalizado`);
-  console.log(`   ${totalProcessed} posts procesados`);
-  console.log(`   ${totalCreated} listings creados`);
-  console.log(`   ${totalErrors} errores`);
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
 }

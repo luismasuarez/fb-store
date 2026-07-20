@@ -1,4 +1,4 @@
-import { getPrismaClient } from "@fb-store/shared";
+import { getPrismaClient } from "../db";
 import { scrapeGroup, savePosts, saveScrapeLog, type ScrapeMetrics } from "../index";
 import type { RawPost } from "../extractor";
 import { getProfileDir } from "../browser";

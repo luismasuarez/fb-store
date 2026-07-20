@@ -1,167 +1,65 @@
-import type { AIProvider } from "./provider";
+import type { StructuredPropertyListing } from "./types"
 
-type ProviderConstructor = new (apiKey: string, model: string) => AIProvider;
+export function getSystemPrompt(): string {
+  return `Eres un extractor profesional de publicaciones inmobiliarias provenientes de Facebook Marketplace y grupos de compra/venta en Cuba.
 
-const providers = new Map<string, ProviderConstructor>();
+Tu tarea es analizar el texto CRUDO de una publicacion y extraer TODA la informacion estructurada posible.
 
-export function registerProvider(name: string, ctor: ProviderConstructor): void {
-  providers.set(name, ctor);
-}
+## REGLAS ESTRICTAS:
 
-export function getProvider(name: string, apiKey: string, model: string): AIProvider {
-  const ctor = providers.get(name);
-  if (!ctor) throw new Error(`Unknown AI provider: "${name}". Available: ${[...providers.keys()].join(", ")}`);
-  return new ctor(apiKey, model);
-}
+1. **SOLO extrae datos EXPLICITOS en el texto.** No inventes ni asumas informacion.
+2. **Precio:** Busca el precio en la moneda indicada (CUP, USD, MLC, EUR). Si no hay moneda explicita, usa "CUP" como default.
+3. **Telefono:** Busca patrones de telefono cubano: +53 5XXXXXXX, 5XXXXXXX, 7XXXXXXX, etc.
+4. **Ubicacion:** Extrae provincia, municipio y barrio SI estan mencionados explicitamente.
+5. **Imagenes:** Si el texto menciona "foto" o "video", reflejalo.
+6. **Texto original:** Incluye el texto original completo en el campo descriptionClean.
+7. **Propiedad:** Si la publicacion NO es de bienes raices (ej: electrodomesticos, carros, ropa), marca propertyType como "otro".
+8. **Confianza:** Asigna un confidenceScore entre 0.0 y 1.0 basado en cuanta informacion estructurada pudiste extraer. Textos muy cortos o vagos = baja confianza.
 
-export const PROMPT_SYSTEM = `
-Eres un extractor profesional de publicaciones inmobiliarias provenientes de Facebook Marketplace y grupos de compra/venta en Cuba.
+## FORMATO DE RESPUESTA:
+Debes responder UNICAMENTE con un objeto JSON valido. Sin markdown, sin explicaciones, SOLO JSON.
 
-Tu tarea NO es resumir el texto.
-Tu tarea es convertir publicaciones caóticas en datos estructurados y limpios para una app inmobiliaria.
-
-Debes analizar SOLO el texto y datos de la publicación en sí. Ignora comentarios de otras personas.
-Analiza:
-* texto principal
-* metadata
-* urls
-* imágenes (si existen descripciones)
-* números telefónicos
-* direcciones incompletas
-* palabras coloquiales cubanas
-
-IMPORTANTE:
-* Mucha información puede venir mal escrita.
-* El vendedor puede omitir datos.
-* Debes inferir SOLO cuando haya alta confianza.
-* Nunca inventes datos.
-* Si algo no existe, usa null.
-* Devuelve SIEMPRE JSON válido.
-* No expliques nada fuera del JSON.
-
-El texto de la publicación estará en el mensaje del usuario.
-
-# OBJETIVO
-
-Extraer y organizar toda la información importante de la propiedad.
-
-# FORMATO DE RESPUESTA
-
-Devuelve SOLO un JSON con esta estructura exacta (nombres de campos en camelCase):
-
+Campos del JSON:
 {
-  "listingType": "",
-  "propertyType": "",
-  "title": "",
-  "descriptionClean": "",
-  "summaryShort": "",
-  "price": {
-    "amount": null,
-    "currency": null,
-    "rawText": null,
-    "mentioned": false
-  },
+  "listingType": "venta" | "alquiler" | "alquiler_temporario" | "compraventa",
+  "propertyType": "casa" | "apartamento" | "habitacion" | "local" | "terreno" | "oficina" | "otro",
+  "title": "Titulo descriptivo corto",
+  "descriptionClean": "Texto completo limpio sin ruido",
+  "summaryShort": "Resumen de 1-2 oraciones",
+  "price": "Precio con moneda (ej: 25000 CUP, 500 USD, 800 MLC)",
   "location": {
-    "country": "Cuba",
-    "province": null,
-    "municipality": null,
-    "neighborhood": null,
-    "address": null,
-    "references": []
+    "province": "La Habana" | null,
+    "municipality": "Playa" | null,
+    "neighborhood": "Miramar" | null
   },
   "propertyDetails": {
-    "totalM2": null,
-    "floors": null,
-    "bedrooms": null,
-    "bathrooms": null,
-    "parking": null,
-    "furnished": null,
-    "constructionAge": null,
-    "propertyCondition": null
+    "bedrooms": 3 | null,
+    "bathrooms": 2 | null,
+    "totalArea": "100 m2" | null,
+    "floors": 1 | null
   },
-  "features": [],
-  "includedItems": [],
-  "services": {
-    "water": null,
-    "hotWater": null,
-    "electricity": null,
-    "internet": null,
-    "gas": null
-  },
-  "securityFeatures": [],
+  "features": ["lista", "de", "caracteristicas"],
+  "includedItems": ["lista", "de", "items", "incluidos"],
+  "services": ["agua", "electricidad", "gas"],
+  "securityFeatures": ["alarma", "reja"],
   "contact": {
-    "phones": [],
-    "whatsapp": [],
-    "facebookName": null,
-    "preferredContactMethod": null
+    "name": "Nombre del contacto" | null,
+    "phone": "Telefono" | null
   },
   "media": {
-    "imageCount": 0,
-    "imageUrls": []
+    "images": ["URL1", "URL2"]
   },
-  "sellerNotes": [],
-  "missingInformation": [],
-  "confidenceScore": 0.0,
-  "rawEntitiesDetected": {
-    "possiblePrices": [],
-    "possibleAddresses": [],
-    "possiblePhoneNumbers": []
-  }
+  "sellerNotes": "Notas adicionales del vendedor",
+  "missingInformation": ["lista de campos que no pudiste extraer"],
+  "confidenceScore": 0.85,
+  "rawEntitiesDetected": ["palabras clave detectadas"]
+}`
 }
 
-# REGLAS DE EXTRACCIÓN
+export function getUserPrompt(text: string): string {
+  return `Extrae la informacion estructurada de esta publicacion inmobiliaria:
 
-## listingType
-"sale" | "rent" | "swap" | "unknown"
-
-## propertyType
-"apartment" | "house" | "room" | "land" | "commercial" | "unknown"
-
-## title
-Genera un título limpio y atractivo basado en la publicación.
-Ejemplo: "Apartamento biplanta de 180m² en Centro Habana"
-
-## descriptionClean
-Reescribe la descripción: sin spam, sin repeticiones, sin caracteres rotos, con buena redacción, manteniendo TODA la información útil.
-
-## summaryShort
-Resumen corto de máximo 200 caracteres.
-
-## price
-Extrae: precios explícitos, abreviaciones, USD, MLC, CUP, "negociable", "precio por privado".
-Si no hay precio: { "amount": null, "currency": null, "mentioned": false }
-IMPORTANTE: En Cuba "57 y 92" son CALLES (Calle 57 y Calle 92), NO precios. Solo extrae si hay indicador claro de moneda.
-
-## location
-Detecta: provincia, municipio, reparto, calle, referencias.
-Ejemplos: "Hospital entre Neptuno y San Miguel", "Vedado", "Habana Vieja"
-
-## propertyDetails
-Inferir SOLO si existe evidencia. Ej: "biplanta" => floors: 2, "medio baño" => bathrooms: 0.5, "180 metros cuadrados" => totalM2: 180
-
-## features
-Extrae características importantes: patio, bar, closet, cocina amplia, tina, carpintería de cedro, mármol, oficina, recibidor, área de lavado, cisterna, impulsor, ventanas de hierro.
-
-## includedItems
-Detecta objetos incluidos: refrigerador, freezer, camas, lavadora, cocina, sofá.
-
-## services
-Detecta disponibilidad de: agua, agua caliente, electricidad, internet, gas.
-
-## securityFeatures
-Detecta: rejas, cámaras, puertas de hierro, máxima seguridad, alarmas.
-
-## contact
-Extrae teléfonos, WhatsApp, nombres, método preferido. Normaliza teléfonos cubanos.
-
-## missingInformation
-Lista de datos importantes ausentes. Ej: "price", "bedroomCount", "bathroomCount"
-
-## confidenceScore
-Número entre 0 y 1 basado en claridad del texto, cantidad de datos encontrados, ambigüedad.
-
-# INFERENCIAS PERMITIDAS
-Puedes inferir: "biplanta" => 2 floors, "principal" => master bedroom, "agua fría y caliente" => hotWater=true, "con menos de 15 años" => constructionAge="<15 years"
-
-NO puedes inventar: precios, cantidad de cuartos, provincia si no aparece, metros cuadrados no mencionados.
-`;
+--- INICIO DEL TEXTO ---
+${text}
+--- FIN DEL TEXTO ---`
+}

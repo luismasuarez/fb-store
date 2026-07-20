@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockCreate = vi.fn();
 const mockFindUnique = vi.fn();
 
-vi.mock("@fb-store/shared", () => ({
+vi.mock("./db", () => ({
   getPrismaClient: () => ({
     rawPost: { create: mockCreate },
     scrapeLog: { create: mockFindUnique },
