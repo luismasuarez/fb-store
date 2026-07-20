@@ -1,0 +1,134 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+    moduleFormat    = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Listing {
+  id            String    @id @default(uuid()) @db.Uuid
+  fbPostId      String    @unique @map("fb_post_id")
+  title         String?
+  price         Decimal?  @db.Decimal(12, 2)
+  currency      String    @default("Bs")
+  category      String?
+  description   String?
+  contactPhone  String?   @map("contact_phone")
+  contactName   String?   @map("contact_name")
+  location      String?
+  images        Json      @default("[]")
+  sourceGroup   String?   @map("source_group")
+  sourceGroupId String?   @map("source_group_id")
+  sourceUrl     String?   @map("source_url")
+  rawText       String?   @map("raw_text")
+  status        String    @default("active")
+  aiConfidence  Decimal?  @db.Decimal(3, 2) @map("ai_confidence")
+  postedAt      DateTime? @map("posted_at")
+  scrapedAt     DateTime  @default(now()) @map("scraped_at")
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  listingType      String?  @map("listing_type")
+  propertyType     String?  @map("property_type")
+  summaryShort     String?  @map("summary_short")
+  province         String?
+  municipality     String?
+  neighborhood     String?
+  bedrooms         Int?
+  bathrooms        Float?
+  totalM2          Int?     @map("total_m2")
+  floors           Int?
+  parking          Boolean?
+  furnished        Boolean?
+  aiRawData        Json?    @map("ai_raw_data")
+
+  rawPosts RawPost[]
+
+  @@index([category])
+  @@index([status])
+  @@index([listingType])
+  @@index([propertyType])
+  @@index([province])
+  @@index([bedrooms])
+  @@index([scrapedAt(sort: Desc)])
+  @@map("listings")
+}
+
+model Group {
+  id          String      @id
+  name        String
+  url         String?
+  maxPosts    Int         @default(30) @map("max_posts")
+  lastScraped DateTime?   @map("last_scraped")
+  lastError   String?     @map("last_error")
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@map("groups")
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  displayName  String        @map("display_name")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  sessions AuthSession[]
+
+  @@map("users")
+}
+
+model AuthSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("auth_sessions")
+}
+
+model ScrapeLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  groupId      String   @map("group_id")
+  accountIndex Int      @map("account_index")
+  postsFound   Int      @default(0) @map("posts_found")
+  postsNew     Int      @default(0) @map("posts_new")
+  postsErrors  Int      @default(0) @map("posts_errors")
+  startedAt    DateTime @default(now()) @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  durationMs   Int?     @map("duration_ms")
+  error        String?
+
+  @@map("scrape_logs")
+}
+
+model RawPost {
+  id          String   @id @default(uuid()) @db.Uuid
+  fbPostId    String   @map("fb_post_id")
+  groupId     String?  @map("group_id")
+  rawData     Json?    @map("raw_data")
+  textContent String?  @map("text_content")
+  processed   Boolean  @default(false)
+  listingId   String?  @map("listing_id") @db.Uuid
+  aiProvider  String?  @map("ai_provider")
+  scrapedAt   DateTime @default(now()) @map("scraped_at")
+
+  listing Listing? @relation(fields: [listingId], references: [id])
+
+  @@index([processed])
+  @@index([fbPostId])
+  @@map("raw_posts")
+}

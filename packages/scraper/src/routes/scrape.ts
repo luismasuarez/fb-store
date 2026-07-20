@@ -1,4 +1,4 @@
-import { getPrismaClient } from "@fb-store/shared";
+import { getPrismaClient } from "../db";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";

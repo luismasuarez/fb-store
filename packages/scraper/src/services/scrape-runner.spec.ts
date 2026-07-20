@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@fb-store/shared", () => ({
+vi.mock("../db", () => ({
   getPrismaClient: vi.fn(),
 }));
 
@@ -15,7 +15,7 @@ vi.mock("./job-tracker", () => ({
   notifyClients: vi.fn(),
 }));
 
-import { getPrismaClient } from "@fb-store/shared";
+import { getPrismaClient } from "../db";
 import { scrapeGroup, savePosts, saveScrapeLog } from "../index";
 import { updateJob, notifyClients } from "./job-tracker";
 import { runScrape } from "./scrape-runner";
