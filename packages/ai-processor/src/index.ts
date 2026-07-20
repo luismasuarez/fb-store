@@ -3,7 +3,7 @@ import { getAiConfig, reloadAiConfig } from "./config"
 import { getPendingPosts, markProcessed, markDuplicate, createListing, updateListingImages } from "./db"
 import { cleanPostText } from "./cleaner"
 import { mapToListing } from "./mapper"
-import { downloadImagesAsBase64 } from "./image-downloader"
+import { downloadImagesAsBase64, type DownloadedImage } from "./image-downloader"
 
 const POLL_INTERVAL_MS = 10_000
 const MIN_TEXT_LENGTH = 20
@@ -33,13 +33,20 @@ export async function processPost(post: any): Promise<{ ok: boolean; error?: str
     }
 
     const postRawData = post.rawData || {}
-    const imageUrls: string[] = Array.isArray(postRawData.images)
-      ? postRawData.images.map((img: any) => (typeof img === "string" ? img : img.url)).filter(Boolean)
-      : []
+    const rawImages: any[] = Array.isArray(postRawData.images) ? postRawData.images : []
 
-    if (imageUrls.length > 0) {
-      const images = await downloadImagesAsBase64(imageUrls)
-      await updateListingImages(listing.id, images)
+    const existingImages: DownloadedImage[] = rawImages
+      .filter((img: any) => img?.data)
+      .map((img: any) => ({ url: img.url, mime: img.mime, data: img.data }))
+
+    const pendingUrls: string[] = rawImages
+      .filter((img: any) => !img?.data)
+      .map((img: any) => (typeof img === "string" ? img : img.url))
+      .filter(Boolean)
+
+    if (existingImages.length > 0 || pendingUrls.length > 0) {
+      const downloaded = pendingUrls.length > 0 ? await downloadImagesAsBase64(pendingUrls) : []
+      await updateListingImages(listing.id, [...existingImages, ...downloaded])
     }
 
     await markProcessed(post.id, listing.id)

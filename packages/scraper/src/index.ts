@@ -70,23 +70,12 @@ export async function scrapeGroup(
           imgCount++;
           onProgress?.("downloading", imgCount, totalImages || 1);
           try {
-            const dataUrl = await page.evaluate(async (url) => {
-              const res = await fetch(url);
-              const blob = await res.blob();
-              return new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-              });
-            }, imgUrl);
-            const [header, data] = dataUrl.split(",");
-            imgs.push({
-              url: imgUrl,
-              mime: header.match(/data:(.*?);/)?.[1] || "image/jpeg",
-              data,
-            });
+            const response = await page.request.fetch(imgUrl);
+            const buffer = await response.body();
+            const mime = response.headers()["content-type"] || "image/jpeg";
+            imgs.push({ url: imgUrl, mime, data: buffer.toString("base64") });
           } catch {
-            imgs.push({ url: imgUrl, mime: "image/jpeg", data: "" });
+            console.warn(`⚠️ Falló descarga: ${imgUrl.substring(0, 60)}...`);
           }
         }
         post.images = imgs as any;
