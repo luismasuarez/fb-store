@@ -60,7 +60,7 @@ export const EXTRACTOR_SCRIPT = `
       }
       for (var c = 0; c < candidates.length; c++) {
         var candidate = candidates[c];
-        if (candidate && candidate.indexOf("/") > -1) {
+        if (candidate && candidate.indexOf("/") > -1 && !candidate.startsWith("data:")) {
           imgs.push(candidate);
         }
       }

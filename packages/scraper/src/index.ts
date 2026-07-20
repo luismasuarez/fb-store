@@ -79,169 +79,122 @@ export async function scrapeGroup(
 
     onProgress?.("extracting", 1, 1);
 
-    // Open photo viewer + carousel to capture all images per post
+    // Open photo viewer directly by URL to capture all album images
     for (let i = 0; i < valid.length; i++) {
       const post = valid[i];
       if (!Array.isArray(post.images) || post.images.length === 0) continue;
+      if (!post.postUrl) {
+        console.log(`📸 Post ${i}: sin postUrl, saltando visor`);
+        continue;
+      }
+
+      console.log(`📸 Post ${i}: ${post.images.length} iniciales, abriendo visor vía URL...`);
+      console.log(`📸   URL: ${post.postUrl.substring(0, 150)}`);
 
       try {
-        const postEl = page.locator('[role="feed"] [aria-posinset]').nth(i);
-        const firstImg = postEl.locator('img[src*="scontent"]').first();
-        if (await firstImg.count() === 0) continue;
+        const feedUrl = page.url();
 
-        console.log(`📸 Post ${i}: ${post.images.length} imágenes iniciales, abriendo visor...`);
+        // Navigate directly to the photo URL to open the viewer
+        console.log(`📸 Post ${i}: navegando a ${post.postUrl.substring(0, 80)}...`);
+        await page.goto(post.postUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+        await page.waitForTimeout(3000);
 
-        // 1st click: open photo viewer
-        await firstImg.click({ timeout: 5000 });
-        await page.waitForTimeout(2000);
+        // Debug: log current URL and page structure
+        const viewerUrl = page.url();
+        console.log(`📸 Post ${i}: URL actual tras navegar: ${viewerUrl.substring(0, 120)}`);
 
-        // Debug: dump viewer DOM info
-        const debugInfo = await page.evaluate(() => {
-          const imgsInDialog = document.querySelectorAll(
-            '[role="dialog"] img, [role="presentation"] img'
-          );
-          return {
-            hasDialog: !!document.querySelector('[role="dialog"]'),
-            hasPresentation: !!document.querySelector('[role="presentation"]'),
-            imgCountInDialog: imgsInDialog.length,
-            allRoles: Array.from(document.querySelectorAll("[role]"))
-              .slice(0, 15)
-              .map((el) => `${el.tagName}[role="${el.getAttribute("role")}"]`),
-            viewerImgs: Array.from(imgsInDialog).slice(0, 3).map((img) => ({
-              src: (img as HTMLImageElement).src?.substring(0, 100),
-              w: (img as HTMLImageElement).offsetWidth,
-              h: (img as HTMLImageElement).offsetHeight,
-            })),
-          };
-        });
-        console.log(`🔍 Visor: dialog=${debugInfo.hasDialog}, presentation=${debugInfo.hasPresentation}, imgs=${debugInfo.imgCountInDialog}`);
-        console.log(`🔍 Roles: ${debugInfo.allRoles.join(", ")}`);
-        if (debugInfo.viewerImgs.length > 0) {
-          console.log(`🔍 1ra img: ${JSON.stringify(debugInfo.viewerImgs[0])}`);
-        }
-
-        // 2nd click on the image inside the viewer
-        const clicked = await page.evaluate(() => {
-          const selectors = [
-            '[role="dialog"] img[src*="scontent"]',
-            '[role="presentation"] img[src*="scontent"]',
-            '[role="dialog"] img[src*="fbcdn"]',
-          ];
-          for (const sel of selectors) {
-            const img = document.querySelector<HTMLElement>(sel);
-            if (img) { img.click(); return sel; }
-          }
-          return "";
-        });
-        console.log(`📌 2do clic: selector="${clicked}"`);
-        await page.waitForTimeout(2000);
-
-        // Debug: check if the second click changed the DOM
-        const after2nd = await page.evaluate(() => ({
-          imgCount: document.querySelectorAll("img[src*='fbcdn']").length,
+        // Check what's on the page
+        const pageInfo = await page.evaluate(() => ({
+          title: document.title,
+          imgsFbcdn: document.querySelectorAll("img[src*='fbcdn']").length,
+          imgsAll: document.querySelectorAll("img").length,
+          hasRoleDialog: !!document.querySelector('[role="dialog"]'),
+          hasRolePresentation: !!document.querySelector('[role="presentation"]'),
           roles: Array.from(document.querySelectorAll("[role]"))
             .slice(0, 10)
             .map((el) => `${el.tagName}[role="${el.getAttribute("role")}"]`),
         }));
-        console.log(`🔍 Tras 2do clic: imgs=${after2nd.imgCount}, roles=${after2nd.roles.join(", ")}`);
+        console.log(`📸 Post ${i}: visor cargado — title="${pageInfo.title}", imgsFbcdn=${pageInfo.imgsFbcdn}, imgsAll=${pageInfo.imgsAll}, dialog=${pageInfo.hasRoleDialog}`);
 
-        // Try extracting all images from the viewer DOM in one shot
-        const allAtOnce = await page.evaluate(() => {
-          const imgs = document.querySelectorAll<HTMLImageElement>("img[src*='fbcdn']");
-          return Array.from(imgs).map((img) => img.src);
+        // Try to extract all images from the viewer page
+        let urls: string[] = [];
+
+        // Method 1: extract from current page DOM
+        urls = await page.evaluate(() => {
+          const imgs = document.querySelectorAll<HTMLImageElement>(
+            "img[src*='fbcdn'], img[src*='scontent']"
+          );
+          return Array.from(imgs)
+            .map((img) => img.src)
+            .filter((s) => s && !s.startsWith("data:") && s.includes("/"));
         });
-        console.log(`📸 Post ${i}: todas las fbcdn en DOM: ${allAtOnce.length}`);
+        console.log(`📸 Post ${i}: método 1 (DOM directo): ${urls.length} URLs`);
 
-        // Navigate carousel to find unique URLs
-        const urls = new Set<string>();
-        let prevSrc = "";
-        let stuckCount = 0;
+        // Method 2: try pressing ArrowRight and capturing new images
+        if (urls.length <= 2) {
+          console.log(`📸 Post ${i}: pocas URLs, navegando carrusel...`);
+          const navUrls = new Set(urls);
+          let prevSrc = "";
+          let stuckCount = 0;
 
-        for (let n = 0; n < 50; n++) {
-          const src = await page.evaluate(() => {
-            for (const sel of [
-              '[role="dialog"] img[src*="fbcdn"]',
-              '[role="presentation"] img[src*="fbcdn"]',
-              "img[src*='fbcdn']:not([width='0']):not([height='0'])",
-            ]) {
-              const img = document.querySelector<HTMLImageElement>(sel);
-              if (img?.src && img.offsetWidth > 0) return img.src;
-            }
-            return "";
-          });
-
-          if (src) {
-            urls.add(src);
-            if (n === 0) console.log(`📸 Primera URL: ${src.substring(0, 100)}`);
-          }
-
-          if (n > 0) {
-            if (src === prevSrc) {
-              stuckCount++;
-              if (stuckCount >= 3) break;
-            } else {
-              stuckCount = 0;
-            }
-          }
-          prevSrc = src;
-
-          await page.keyboard.press("ArrowRight");
-          await page.waitForTimeout(600);
-        }
-
-        console.log(`📸 Post ${i}: ${urls.size} URLs con teclado`);
-
-        // Try clicking nav buttons as fallback
-        if (urls.size <= 2) {
-          console.log(`📸 Post ${i}: pocas URLs, probando botones de navegación...`);
-          for (let n = 0; n < 20; n++) {
-            // Click next button
-            await page.evaluate(() => {
-              const btns = document.querySelectorAll<HTMLElement>(
-                '[role="dialog"] a, [role="presentation"] a, [role="dialog"] [role="button"], [role="presentation"] [role="button"]'
-              );
-              for (const btn of Array.from(btns)) {
-                const label = (btn.getAttribute("aria-label") || "").toLowerCase();
-                const html = (btn.innerHTML || "").toLowerCase();
-                if (
-                  label.includes("next") || label.includes("siguiente") ||
-                  label.includes("right") || label.includes("derecha") ||
-                  html.includes("›") || html.includes("▶") || html.includes("▸")
-                ) {
-                  btn.click();
-                  return;
-                }
-              }
-              // fallback: click the right side of the viewport
-              const rightEl = document.elementFromPoint(window.innerWidth - 100, window.innerHeight / 2);
-              (rightEl as HTMLElement)?.click();
-            });
-            await page.waitForTimeout(800);
+          for (let n = 0; n < 50; n++) {
+            await page.keyboard.press("ArrowRight");
+            await page.waitForTimeout(1000);
 
             const src = await page.evaluate(() => {
-              const img = document.querySelector<HTMLImageElement>("img[src*='fbcdn']:not([width='0'])");
-              return img?.src || "";
+              const imgs = document.querySelectorAll<HTMLImageElement>(
+                "img[src*='fbcdn']:not([width='0']):not([height='0'])"
+              );
+              if (imgs.length > 0) return imgs[imgs.length - 1].src;
+              return "";
             });
-            if (src) urls.add(src);
+
+            if (src && !src.startsWith("data:")) {
+              if (navUrls.has(src)) {
+                stuckCount++;
+                if (stuckCount >= 3) {
+                  console.log(`📸 Post ${n}: misma URL x3 — fin carrusel (${navUrls.size} URLs)`);
+                  break;
+                }
+              } else {
+                navUrls.add(src);
+                stuckCount = 0;
+                console.log(`📸   [${n}] Nueva URL: ${src.substring(0, 80)}`);
+              }
+              prevSrc = src;
+            }
+
+            // Also try ArrowLeft
+            if (n % 2 === 1) {
+              await page.keyboard.press("ArrowLeft");
+              await page.waitForTimeout(600);
+            }
           }
-          console.log(`📸 Post ${i}: ${urls.size} URLs con botones`);
+
+          urls = Array.from(navUrls);
+          console.log(`📸 Post ${i}: después de navegación: ${urls.length} URLs`);
         }
 
-        // Close viewer
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(1000);
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(500);
+        // Deduplicate and filter
+        const uniqueUrls = Array.from(new Set(urls)).filter(
+          (s) => s && !s.startsWith("data:") && !s.includes("svg")
+        );
+        console.log(`📸 Post ${i}: ${uniqueUrls.length} URLs únicas después de filtrar`);
 
-        const allUrls = Array.from(urls).filter(Boolean);
-        console.log(`📸 Post ${i}: total ${allUrls.length} URLs capturadas`);
-        if (allUrls.length > post.images.length) {
-          post.images = allUrls;
+        if (uniqueUrls.length > post.images.length) {
+          console.log(`📸 Post ${i}: ${post.images.length} → ${uniqueUrls.length} imágenes ✅`);
+          post.images = uniqueUrls;
         } else {
-          console.log(`📸 Post ${i}: no se encontraron más imágenes que las iniciales`);
+          console.log(`📸 Post ${i}: no se encontraron más imágenes (${post.images.length} ≥ ${uniqueUrls.length})`);
         }
+
+        // Go back to the feed
+        console.log(`📸 Post ${i}: volviendo al feed...`);
+        await page.goto(feedUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+        await page.waitForTimeout(2000);
+        console.log(`📸 Post ${i}: de vuelta al feed`);
       } catch (err: any) {
-        console.log(`⚠️ Post ${i}: error en carrusel: ${err.message}`);
+        console.log(`⚠️ Post ${i}: error en visor: ${err.message}`);
         // fallback: keep original images from feed extraction
       }
     }
