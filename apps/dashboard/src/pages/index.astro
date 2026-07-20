@@ -1,12 +1,8 @@
 ---
 import Layout from "@/layouts/main.astro"
-import StatsCards from "@/components/dashboard/StatsCards"
-import QuickScrape from "@/components/quick-scrape/QuickScrape"
-import RecentScrapes from "@/components/dashboard/RecentScrapes"
+import DashboardOverview from "@/components/dashboard/DashboardOverview"
 ---
 
 <Layout>
-  <StatsCards client:load />
-  <QuickScrape client:load />
-  <RecentScrapes client:load />
+  <DashboardOverview client:load />
 </Layout>
