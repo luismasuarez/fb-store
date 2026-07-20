@@ -71,31 +71,91 @@ export async function scrapeGroup(
         const firstImg = postEl.locator('img[src*="scontent"]').first();
         if (await firstImg.count() === 0) continue;
 
+        console.log(`📸 Post ${i}: ${post.images.length} imágenes iniciales, abriendo visor...`);
+
         // 1st click: open photo viewer
-        await firstImg.click({ timeout: 3000 });
+        await firstImg.click({ timeout: 5000 });
         await page.waitForTimeout(2000);
 
-        // 2nd click on the image inside the viewer to open full carousel
-        await page.evaluate(() => {
-          const img = document.querySelector<HTMLElement>(
-            '[role="dialog"] img[src*="scontent"], [role="presentation"] img[src*="scontent"]'
+        // Debug: dump viewer DOM info
+        const debugInfo = await page.evaluate(() => {
+          const imgsInDialog = document.querySelectorAll(
+            '[role="dialog"] img, [role="presentation"] img'
           );
-          img?.click();
+          return {
+            hasDialog: !!document.querySelector('[role="dialog"]'),
+            hasPresentation: !!document.querySelector('[role="presentation"]'),
+            imgCountInDialog: imgsInDialog.length,
+            allRoles: Array.from(document.querySelectorAll("[role]"))
+              .slice(0, 15)
+              .map((el) => `${el.tagName}[role="${el.getAttribute("role")}"]`),
+            viewerImgs: Array.from(imgsInDialog).slice(0, 3).map((img) => ({
+              src: (img as HTMLImageElement).src?.substring(0, 100),
+              w: (img as HTMLImageElement).offsetWidth,
+              h: (img as HTMLImageElement).offsetHeight,
+            })),
+          };
         });
+        console.log(`🔍 Visor: dialog=${debugInfo.hasDialog}, presentation=${debugInfo.hasPresentation}, imgs=${debugInfo.imgCountInDialog}`);
+        console.log(`🔍 Roles: ${debugInfo.allRoles.join(", ")}`);
+        if (debugInfo.viewerImgs.length > 0) {
+          console.log(`🔍 1ra img: ${JSON.stringify(debugInfo.viewerImgs[0])}`);
+        }
+
+        // 2nd click on the image inside the viewer
+        const clicked = await page.evaluate(() => {
+          const selectors = [
+            '[role="dialog"] img[src*="scontent"]',
+            '[role="presentation"] img[src*="scontent"]',
+            '[role="dialog"] img[src*="fbcdn"]',
+          ];
+          for (const sel of selectors) {
+            const img = document.querySelector<HTMLElement>(sel);
+            if (img) { img.click(); return sel; }
+          }
+          return "";
+        });
+        console.log(`📌 2do clic: selector="${clicked}"`);
         await page.waitForTimeout(2000);
 
+        // Debug: check if the second click changed the DOM
+        const after2nd = await page.evaluate(() => ({
+          imgCount: document.querySelectorAll("img[src*='fbcdn']").length,
+          roles: Array.from(document.querySelectorAll("[role]"))
+            .slice(0, 10)
+            .map((el) => `${el.tagName}[role="${el.getAttribute("role")}"]`),
+        }));
+        console.log(`🔍 Tras 2do clic: imgs=${after2nd.imgCount}, roles=${after2nd.roles.join(", ")}`);
+
+        // Try extracting all images from the viewer DOM in one shot
+        const allAtOnce = await page.evaluate(() => {
+          const imgs = document.querySelectorAll<HTMLImageElement>("img[src*='fbcdn']");
+          return Array.from(imgs).map((img) => img.src);
+        });
+        console.log(`📸 Post ${i}: todas las fbcdn en DOM: ${allAtOnce.length}`);
+
+        // Navigate carousel to find unique URLs
         const urls = new Set<string>();
         let prevSrc = "";
         let stuckCount = 0;
 
         for (let n = 0; n < 50; n++) {
           const src = await page.evaluate(() => {
-            const img = document.querySelector<HTMLImageElement>(
-              '[role="dialog"] img[src*="scontent"], [role="presentation"] img[src*="scontent"]'
-            );
-            return img?.src || "";
+            for (const sel of [
+              '[role="dialog"] img[src*="fbcdn"]',
+              '[role="presentation"] img[src*="fbcdn"]',
+              "img[src*='fbcdn']:not([width='0']):not([height='0'])",
+            ]) {
+              const img = document.querySelector<HTMLImageElement>(sel);
+              if (img?.src && img.offsetWidth > 0) return img.src;
+            }
+            return "";
           });
-          if (src) urls.add(src);
+
+          if (src) {
+            urls.add(src);
+            if (n === 0) console.log(`📸 Primera URL: ${src.substring(0, 100)}`);
+          }
 
           if (n > 0) {
             if (src === prevSrc) {
@@ -108,21 +168,62 @@ export async function scrapeGroup(
           prevSrc = src;
 
           await page.keyboard.press("ArrowRight");
-          await page.waitForTimeout(800);
+          await page.waitForTimeout(600);
         }
 
-        // Close viewer (Escape twice: carousel → viewer, viewer → feed)
+        console.log(`📸 Post ${i}: ${urls.size} URLs con teclado`);
+
+        // Try clicking nav buttons as fallback
+        if (urls.size <= 2) {
+          console.log(`📸 Post ${i}: pocas URLs, probando botones de navegación...`);
+          for (let n = 0; n < 20; n++) {
+            // Click next button
+            await page.evaluate(() => {
+              const btns = document.querySelectorAll<HTMLElement>(
+                '[role="dialog"] a, [role="presentation"] a, [role="dialog"] [role="button"], [role="presentation"] [role="button"]'
+              );
+              for (const btn of Array.from(btns)) {
+                const label = (btn.getAttribute("aria-label") || "").toLowerCase();
+                const html = (btn.innerHTML || "").toLowerCase();
+                if (
+                  label.includes("next") || label.includes("siguiente") ||
+                  label.includes("right") || label.includes("derecha") ||
+                  html.includes("›") || html.includes("▶") || html.includes("▸")
+                ) {
+                  btn.click();
+                  return;
+                }
+              }
+              // fallback: click the right side of the viewport
+              const rightEl = document.elementFromPoint(window.innerWidth - 100, window.innerHeight / 2);
+              (rightEl as HTMLElement)?.click();
+            });
+            await page.waitForTimeout(800);
+
+            const src = await page.evaluate(() => {
+              const img = document.querySelector<HTMLImageElement>("img[src*='fbcdn']:not([width='0'])");
+              return img?.src || "";
+            });
+            if (src) urls.add(src);
+          }
+          console.log(`📸 Post ${i}: ${urls.size} URLs con botones`);
+        }
+
+        // Close viewer
         await page.keyboard.press("Escape");
-        await page.waitForTimeout(800);
+        await page.waitForTimeout(1000);
         await page.keyboard.press("Escape");
         await page.waitForTimeout(500);
 
-        const allUrls = Array.from(urls);
+        const allUrls = Array.from(urls).filter(Boolean);
+        console.log(`📸 Post ${i}: total ${allUrls.length} URLs capturadas`);
         if (allUrls.length > post.images.length) {
-          console.log(`📸 Post ${i}: ${post.images.length} → ${allUrls.length} imágenes`);
           post.images = allUrls;
+        } else {
+          console.log(`📸 Post ${i}: no se encontraron más imágenes que las iniciales`);
         }
-      } catch {
+      } catch (err: any) {
+        console.log(`⚠️ Post ${i}: error en carrusel: ${err.message}`);
         // fallback: keep original images from feed extraction
       }
     }
