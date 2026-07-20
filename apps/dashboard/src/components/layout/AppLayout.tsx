@@ -41,7 +41,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Breadcrumb>
           <ThemeToggle />
         </header>
-        <div className="flex-1 p-6 lg:p-8">{children}</div>
+        <div className="flex-1 space-y-8 p-6 lg:p-8">{children}</div>
       </main>
       <Toaster />
     </SidebarProvider>
