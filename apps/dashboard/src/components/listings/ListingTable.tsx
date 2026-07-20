@@ -53,17 +53,18 @@ export default function ListingTable() {
     return `/api/v1/listings?${params}`
   }
 
-  function load() {
-    fetch(buildUrl())
-      .then((r) => r.json())
-      .then((d) => {
-        setListings(d.data ?? [])
-        setPagination(d.pagination ?? null)
-      })
-      .catch(() => { setListings([]); toast.error("Failed to load listings") })
+  async function load() {
+    try {
+      const res = await api.listings.list(buildUrl().replace("/api/v1/listings?", ""))
+      setListings(res.data ?? [])
+      setPagination(res.pagination ?? null)
+    } catch {
+      setListings([])
+      toast.error("Failed to load listings")
+    }
   }
 
-  useEffect(load, [page, listingType, propertyType, sort])
+  useEffect(() => { load() }, [page, listingType, propertyType, sort])
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()

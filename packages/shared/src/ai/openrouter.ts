@@ -9,6 +9,18 @@ export interface OpenRouterConfig {
   model: string
 }
 
+function cleanJsonResponse(raw: string): string {
+  let cleaned = raw.trim()
+
+  const jsonStart = cleaned.indexOf("{")
+  const jsonEnd = cleaned.lastIndexOf("}")
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1)
+  }
+
+  return cleaned
+}
+
 export async function extractWithOpenRouter(
   text: string,
   config: OpenRouterConfig,
@@ -66,7 +78,15 @@ async function callOpenRouter(
     const content = json?.choices?.[0]?.message?.content
     if (!content) throw new Error("Empty response from OpenRouter")
 
-    return JSON.parse(content) as StructuredPropertyListing
+    const cleaned = cleanJsonResponse(content)
+
+    try {
+      return JSON.parse(cleaned) as StructuredPropertyListing
+    } catch (parseErr) {
+      throw new Error(
+        `Failed to parse AI response as JSON after cleaning (model=${config.model}): ${cleaned.slice(0, 300)}`,
+      )
+    }
   } finally {
     clearTimeout(timer)
   }

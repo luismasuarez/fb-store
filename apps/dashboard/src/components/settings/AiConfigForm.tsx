@@ -8,7 +8,14 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Settings, Loader2, CheckCircle, AlertCircle, RefreshCw } from "@/lib/icon"
 import { toast } from "sonner"
-import { api } from "@/lib/api"
+
+interface OpenRouterModel {
+  id: string
+  name: string
+  context_length: number
+  pricing: { prompt: string; completion: string; image: string; request: string }
+  top_provider: { is_moderated: boolean; max_completion_tokens: number | null }
+}
 
 export default function AiConfigForm() {
   const [loading, setLoading] = useState(true)
@@ -21,8 +28,14 @@ export default function AiConfigForm() {
   const [model, setModel] = useState("openai/gpt-4o-mini")
   const [apiKeyMasked, setApiKeyMasked] = useState("")
 
+  const [models, setModels] = useState<OpenRouterModel[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
+
   useEffect(() => {
-    fetch("/api/v1/ai/config")
+    fetch("/api/v1/ai/config", {
+      headers: { "x-api-key": import.meta.env.PUBLIC_API_KEY },
+    })
       .then((r) => r.json())
       .then((d) => {
         const cfg = d.data
@@ -33,6 +46,28 @@ export default function AiConfigForm() {
       })
       .catch(() => setLoading(false))
   }, [])
+
+  async function loadModels() {
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const res = await fetch(`/api/v1/ai/models`, {
+        headers: { "x-api-key": import.meta.env.PUBLIC_API_KEY },
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error?.message || "Failed to load models")
+      const list: OpenRouterModel[] = d.data || []
+      setModels(list)
+      if (list.length > 0 && !list.some((m) => m.id === model)) {
+        setModel(list[0].id)
+      }
+    } catch (err: any) {
+      setModelsError(err.message)
+      setModels([])
+    } finally {
+      setModelsLoading(false)
+    }
+  }
 
   async function save() {
     if (!apiKey && !apiKeyMasked) { toast.error("API Key is required"); return }
@@ -47,6 +82,9 @@ export default function AiConfigForm() {
       if (!res.ok) throw new Error(d.error?.message || "Save failed")
       setApiKey("")
       setApiKeyMasked(d.data.apiKeyMasked)
+
+      await loadModels()
+
       toast.success("AI configuration saved")
     } catch (err: any) {
       toast.error(err.message)
@@ -77,6 +115,8 @@ export default function AiConfigForm() {
       setTesting(false)
     }
   }
+
+  const selectedModelMeta = models.find((m) => m.id === model)
 
   return (
     <Card>
@@ -126,8 +166,54 @@ export default function AiConfigForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="model">Model</Label>
-              <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="openai/gpt-4o-mini" />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="model">Model</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-xs"
+                  disabled={modelsLoading}
+                  onClick={loadModels}
+                >
+                  {modelsLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  Load models
+                </Button>
+              </div>
+              {modelsLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : modelsError ? (
+                <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span>{modelsError}</span>
+                </div>
+              ) : models.length > 0 ? (
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger id="model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {models.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span className="font-mono text-xs">{m.id}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input id="model" value={model} onChange={(e) => setModel(e.target.value)} placeholder="openai/gpt-4o-mini" />
+              )}
+
+              {selectedModelMeta && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span>Context: {(selectedModelMeta.context_length / 1000).toFixed(0)}k</span>
+                  <span>Prompt: ${Number(selectedModelMeta.pricing.prompt) * 1000}/M</span>
+                  <span>Completion: ${Number(selectedModelMeta.pricing.completion) * 1000}/M</span>
+                </div>
+              )}
             </div>
 
             <Separator />

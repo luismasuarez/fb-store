@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import type { Context } from "hono"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { resolve } from "node:path"
-import { Extractor } from "@fb-store/shared"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { Extractor, fetchAvailableModels } from "@fb-store/shared"
 
 interface AiConfigData {
   provider: string
@@ -20,13 +20,20 @@ function loadConfig(): AiConfigData | null {
   if (!existsSync(path)) return null
   try {
     return JSON.parse(readFileSync(path, "utf-8"))
-  } catch {
+  } catch (err) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "Failed to parse ai-config.json",
+      path,
+      error: String(err),
+    }))
     return null
   }
 }
 
 function saveConfig(data: { provider: string; model: string; apiKey: string }): void {
   const path = getConfigPath()
+  mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, JSON.stringify(data, null, 2), "utf-8")
 }
 
@@ -64,13 +71,27 @@ aiRoute.put("/ai/config", async (c: Context<{ Variables: { requestId: string } }
     return c.json({ error: { code: "validation", message: "apiKey is required", requestId: c.get("requestId") } }, 400)
   }
 
-  saveConfig({
-    provider,
-    model: model || "openai/gpt-4o-mini",
-    apiKey,
-  })
+  try {
+    saveConfig({
+      provider,
+      model: model || "openai/gpt-4o-mini",
+      apiKey,
+    })
+  } catch (err: any) {
+    console.error(JSON.stringify({
+      level: "error",
+      msg: "Failed to save ai-config.json",
+      error: String(err),
+      requestId: c.get("requestId"),
+    }))
+    return c.json({ error: { code: "unknown", message: "Failed to save configuration", requestId: c.get("requestId") } }, 500)
+  }
 
-  const config = loadConfig()!
+  const config = loadConfig()
+  if (!config) {
+    return c.json({ error: { code: "unknown", message: "Failed to save AI configuration", requestId: c.get("requestId") } }, 500)
+  }
+
   return c.json({
     data: {
       provider: config.provider,
@@ -78,6 +99,15 @@ aiRoute.put("/ai/config", async (c: Context<{ Variables: { requestId: string } }
       apiKeyMasked: maskKey(apiKey),
     },
   })
+})
+
+aiRoute.get("/ai/models", async (c: Context<{ Variables: { requestId: string } }>) => {
+  try {
+    const models = await fetchAvailableModels()
+    return c.json({ data: models })
+  } catch (err: any) {
+    return c.json({ error: { code: "unknown", message: err.message, requestId: c.get("requestId") } }, 500)
+  }
 })
 
 aiRoute.post("/ai/test", async (c: Context<{ Variables: { requestId: string } }>) => {

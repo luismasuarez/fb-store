@@ -23,7 +23,14 @@ function loadFromFile(): AiConfig {
         model: json.model || process.env.AI_MODEL || "openai/gpt-4o-mini",
         batchSize: Number(json.batchSize) || Number(process.env.AI_BATCH_SIZE) || 10,
       }
-    } catch {}
+    } catch (err) {
+      console.error(JSON.stringify({
+        level: "error",
+        msg: "Failed to parse ai-config.json in ai-processor",
+        path: CONFIG_PATH,
+        error: String(err),
+      }))
+    }
   }
   return {
     provider: process.env.AI_PROVIDER || "openrouter",

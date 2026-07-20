@@ -13,6 +13,10 @@ const BASE = import.meta.env.PUBLIC_API_URL ?? ''
 const API_KEY = import.meta.env.PUBLIC_API_KEY ?? ''
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  return requestRaw<{ data?: T }>(path, opts).then((b) => (b.data ?? b) as T)
+}
+
+async function requestRaw<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}/api/v1${path}`, {
     ...opts,
     headers: {
@@ -23,7 +27,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   })
   const body = await res.json()
   if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
-  return body.data ?? body
+  return body as T
 }
 
 export const api = {
@@ -68,6 +72,26 @@ export const api = {
     get: () => request<ScheduleConfig>('/schedule'),
     update: (data: { intervalMinutes?: number; enabled?: boolean }) =>
       request<ScheduleConfig>('/schedule', { method: 'PUT', body: JSON.stringify(data) }),
+  },
+
+  ai: {
+    getConfig: () => request<{ provider: string; model: string; apiKeyMasked: string }>('/ai/config'),
+    saveConfig: (data: { provider: string; model: string; apiKey: string }) =>
+      request<{ provider: string; model: string; apiKeyMasked: string }>('/ai/config', { method: 'PUT', body: JSON.stringify(data) }),
+    test: (text?: string) =>
+      request<{ success: boolean; durationMs?: number; error?: string; result?: Record<string, unknown> }>('/ai/test', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+    models: () => request<unknown[]>('/ai/models'),
+  },
+
+  listings: {
+    list: (params: string) =>
+      requestRaw<{
+        data: any[]
+        pagination: { page: number; limit: number; total: number; totalPages: number }
+      }>(`/listings?${params}`),
   },
 }
 
