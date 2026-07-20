@@ -61,6 +61,48 @@ export async function scrapeGroup(
     console.log(`📦 ${valid.length} posts extraídos`);
     onProgress?.("extracting", 1, 1);
 
+    // Open photo viewer for each post to capture all carousel images
+    for (let i = 0; i < valid.length; i++) {
+      const post = valid[i];
+      if (!Array.isArray(post.images) || post.images.length === 0) continue;
+
+      try {
+        const postEl = page.locator('[role="feed"] [aria-posinset]').nth(i);
+        const firstImg = postEl.locator('img[src*="scontent"]').first();
+        if (await firstImg.count() === 0) continue;
+
+        await firstImg.click({ timeout: 3000 });
+        await page.waitForTimeout(1500);
+
+        const urls = new Set<string>();
+        let prevSrc = "";
+        for (let n = 0; n < 50; n++) {
+          const src = await page.evaluate(() => {
+            const img = document.querySelector(
+              '[role="dialog"] img[src*="scontent"], [role="presentation"] img[src*="scontent"]'
+            );
+            return (img as HTMLImageElement)?.src || "";
+          });
+          if (src) urls.add(src);
+          if (n > 0 && src === prevSrc) break;
+          prevSrc = src;
+          await page.keyboard.press("ArrowRight");
+          await page.waitForTimeout(600);
+        }
+
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(500);
+
+        const allUrls = Array.from(urls);
+        if (allUrls.length > post.images.length) {
+          console.log(`📸 Post ${i}: ${post.images.length} → ${allUrls.length} imágenes`);
+          post.images = allUrls;
+        }
+      } catch {
+        // fallback: keep original images from feed extraction
+      }
+    }
+
     const totalImages = valid.reduce((sum, p) => sum + (Array.isArray(p.images) ? p.images.length : 0), 0);
     let imgCount = 0;
     for (const post of valid) {
