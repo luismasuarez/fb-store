@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, Param, HttpCode, Res, Query } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import { Readable } from "stream";
+import { SkipAuth } from "../../../core/guards/api-key.guard";
 import { ScrapeService } from "../application/scrape.service";
 
 interface ScrapeBody {
@@ -31,6 +32,7 @@ export class ScrapeController {
   }
 
 
+  @SkipAuth()
   @Get(":jobId/events")
   async streamEvents(
     @Param("jobId") jobId: string,

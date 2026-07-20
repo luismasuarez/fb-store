@@ -31,6 +31,7 @@ const initialState: ScrapeState = {
 };
 
 function connectSSE(jobId: string, setSse: React.Dispatch<React.SetStateAction<ScrapeState>>, cleanup: () => void): EventSource {
+  let terminated = false;
   const es = new EventSource(`/api/scrape/${jobId}/events`);
 
   es.addEventListener("progress", (e: MessageEvent) => {
@@ -64,6 +65,7 @@ function connectSSE(jobId: string, setSse: React.Dispatch<React.SetStateAction<S
   });
 
   es.addEventListener("complete", (e: MessageEvent) => {
+    terminated = true;
     try {
       const d = JSON.parse(e.data);
       setSse((prev) => ({
@@ -80,7 +82,8 @@ function connectSSE(jobId: string, setSse: React.Dispatch<React.SetStateAction<S
   });
 
   es.addEventListener("error", (e: MessageEvent) => {
-    if (!e.data) return; // browser connection close after "complete" — ignore
+    if (!e.data) return;
+    terminated = true;
     try {
       const d = JSON.parse(e.data);
       setSse((prev) => ({
@@ -99,12 +102,12 @@ function connectSSE(jobId: string, setSse: React.Dispatch<React.SetStateAction<S
   });
 
   es.onerror = () => {
-    setSse((prev) => {
-      if (prev.status === "running") {
-        return { ...prev, status: "error", error: "Conexión perdida" };
-      }
-      return prev;
-    });
+    if (terminated) return;
+    setSse((prev) => ({
+      ...prev,
+      status: "error",
+      error: "Conexión perdida",
+    }));
     cleanup();
   };
 
