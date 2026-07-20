@@ -1,7 +1,27 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, ConflictException, BadRequestException, NotFoundException, ServiceUnavailableException, BadGatewayException, UnauthorizedException, InternalServerErrorException } from "@nestjs/common";
 import { AppConfigService } from "../../../infrastructure/config/app-config.service";
 import { GroupsService } from "../../groups/application/groups.service";
 import { AiProcessorService } from "../../ai-processor/application/ai-processor.service";
+
+function classifyScraperError(code: string | undefined, status: number, message: string): never {
+  if (status === 409) throw new ConflictException(message);
+  if (status === 404) throw new NotFoundException(message);
+  switch (code) {
+    case "business":
+      throw new ConflictException(message);
+    case "invalid_url":
+    case "validation":
+      throw new BadRequestException(message);
+    case "session_expired":
+      throw new UnauthorizedException(message);
+    case "db_error":
+      throw new ServiceUnavailableException(message);
+    case "network_error":
+      throw new BadGatewayException(message);
+    default:
+      throw new InternalServerErrorException(message);
+  }
+}
 
 @Injectable()
 export class ScrapeService {
@@ -36,15 +56,23 @@ export class ScrapeService {
       body: JSON.stringify({ groupId, maxPosts }),
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(
-        err?.error?.message ?? `Scraper responded with ${res.status}`,
-      );
+    const body = await res.json().catch(() => ({}));
+
+    if (body.alreadyRunning) {
+      this.logger.log(`Reusing active job ${body.jobId} for group ${groupId}`);
+      return { jobId: body.jobId, alreadyRunning: true as const, status: body.status };
     }
 
-    const body = await res.json();
-    return { jobId: body.jobId };
+    if (!res.ok) {
+      classifyScraperError(body?.error?.code, res.status, body?.error?.message ?? `Scraper responded with ${res.status}`);
+    }
+
+    const result = { jobId: body.jobId };
+    this.chainAfterScrape(body.jobId).catch((err) => {
+      this.logger.error(`Background chainAfterScrape failed: ${(err as Error).message}`);
+    });
+
+    return result;
   }
 
   async triggerScrapeForAllGroups(): Promise<{ jobIds: string[] }> {
@@ -58,6 +86,24 @@ export class ScrapeService {
     }
 
     return { jobIds };
+  }
+
+  async getActiveScrapeJob(profile = "cuenta-1") {
+    const res = await fetch(`${this.scraperUrl}/api/v1/scrape/active/${profile}`, {
+      headers: { "x-api-key": this.apiKey },
+    });
+
+    if (!res.ok) return null;
+
+    const body = await res.json();
+    if (!body.active) return null;
+
+    return {
+      jobId: body.jobId,
+      status: body.status,
+      progress: body.progress,
+      createdAt: body.createdAt,
+    };
   }
 
   async fetchJobEventsStream(jobId: string): Promise<Response | null> {
@@ -77,15 +123,11 @@ export class ScrapeService {
       },
     );
 
-    if (res.status === 404) {
-      return null;
-    }
+    if (res.status === 404) return null;
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(
-        err?.error?.message ?? `Scraper responded with ${res.status}`,
-      );
+      classifyScraperError(err?.error?.code, res.status, err?.error?.message ?? `Scraper responded with ${res.status}`);
     }
 
     const job = await res.json();

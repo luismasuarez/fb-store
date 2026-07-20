@@ -186,7 +186,7 @@ export async function fetchListing(id: string): Promise<Listing | null> {
   return data;
 }
 
-export async function triggerScrape(groupId?: string, maxPosts?: number): Promise<{ jobId: string }> {
+export async function triggerScrape(groupId?: string, maxPosts?: number): Promise<{ jobId: string; alreadyRunning?: boolean; status?: string }> {
   const { data } = await api.post("/scrape", { groupId, maxPosts });
   return data;
 }
@@ -195,6 +195,12 @@ export async function triggerScrapeAllGroups(): Promise<{ jobIds: string[] }> {
   const { data } = await api.post("/scrape/all");
   return data;
 }
+
+export async function getActiveScrapeJob(profile?: string): Promise<{ jobId: string; status: string; progress?: any; createdAt?: string } | null> {
+  const { data } = await api.get("/scrape/active", { params: { profile } });
+  return data.data;
+}
+
 
 export async function getJobStatus(jobId: string): Promise<{ jobId: string; status: string; progress?: any; result?: any; failedReason?: string }> {
   const { data } = await api.get(`/scrape/status/${jobId}`);

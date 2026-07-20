@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AppConfigService } from "../../../infrastructure/config/app-config.service";
-import { AiProcessorService } from "../../ai-processor/application/ai-processor.service";
 import { GroupsService } from "../../groups/application/groups.service";
+import { AiProcessorService } from "../../ai-processor/application/ai-processor.service";
 import { ScrapeService } from "./scrape.service";
 
 function mockFetch(
@@ -40,8 +40,8 @@ describe("ScrapeService", () => {
       providers: [
         ScrapeService,
         { provide: AppConfigService, useValue: config },
-        { provide: AiProcessorService, useValue: aiProcessorService },
         { provide: GroupsService, useValue: groupsService },
+        { provide: AiProcessorService, useValue: aiProcessorService },
       ],
     }).compile();
 

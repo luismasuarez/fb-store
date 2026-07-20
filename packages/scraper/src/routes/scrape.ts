@@ -87,8 +87,11 @@ scrapeRoute.post("/scrape", async (c: Context<{ Variables: { requestId: string }
   const activeJob = getActiveJobForProfile(parsed.profile);
   if (activeJob) {
     return c.json({
-      error: { code: "business", message: "Profile already has an active scrape job", requestId: c.get("requestId") },
-    }, 409);
+      jobId: activeJob.id,
+      status: activeJob.status,
+      alreadyRunning: true,
+      message: "Profile already has an active scrape job",
+    }, 200);
   }
 
   const jobId = crypto.randomUUID();
@@ -189,6 +192,22 @@ scrapeRoute.get("/scrape/:jobId/events", (c: Context<{ Variables: { requestId: s
         resolve();
       });
     });
+  });
+});
+
+scrapeRoute.get("/scrape/active/:profile", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const profile = c.req.param("profile") as string;
+  const job = getActiveJobForProfile(profile);
+  if (!job) {
+    return c.json({ active: false }, 200);
+  }
+
+  return c.json({
+    active: true,
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    createdAt: job.createdAt,
   });
 });
 

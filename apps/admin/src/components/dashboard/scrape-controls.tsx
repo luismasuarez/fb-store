@@ -4,7 +4,19 @@ import { useScrape, useAiProcess } from "../../hooks/use-scrape";
 import { fetchGroups, triggerScrapeAllGroups } from "../../lib/api";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+
+function extractError(err: unknown): string {
+  const anyErr = err as Record<string, unknown>;
+  const resp = anyErr?.response as Record<string, unknown> | undefined;
+  const respData = resp?.data as Record<string, unknown> | undefined;
+  return (
+    (respData?.error as Record<string, unknown> | undefined)?.message as string
+    ?? respData?.message as string
+    ?? (anyErr?.message as string)
+    ?? "Error al scrapear"
+  );
+}
 
 export function ScrapeControls() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
@@ -23,6 +35,7 @@ export function ScrapeControls() {
 
   const isRunning = isPending || sse.status === "running" || allScraping;
   const progressPct = sse.total > 0 ? Math.round((sse.current / sse.total) * 100) : 0;
+  const errorMessage = extractError(error);
 
   async function handleScrape() {
     if (selectedGroupId) {
@@ -66,6 +79,13 @@ export function ScrapeControls() {
               </option>
             ))}
           </select>
+        )}
+
+        {sse.status === "running" && sse.jobId && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Job activo: {sse.jobId.slice(0, 8)}...
+          </div>
         )}
 
         <div className="flex flex-wrap gap-3">
@@ -157,7 +177,7 @@ export function ScrapeControls() {
         {(isError || sse.status === "error") && (
           <div className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            Error: {error?.message || sse.error || "Error al scrapear"}
+            Error: {errorMessage || sse.error || "Error al scrapear"}
           </div>
         )}
 

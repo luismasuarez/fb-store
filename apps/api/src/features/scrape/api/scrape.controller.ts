@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, HttpCode, Res } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, HttpCode, Res, Query } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import { Readable } from "stream";
 import { ScrapeService } from "../application/scrape.service";
@@ -23,6 +23,13 @@ export class ScrapeController {
   async triggerAll() {
     return this.scrapeService.triggerScrapeForAllGroups();
   }
+
+  @Get("active")
+  async getActive(@Query("profile") profile?: string) {
+    const active = await this.scrapeService.getActiveScrapeJob(profile ?? "cuenta-1");
+    return { data: active };
+  }
+
 
   @Get(":jobId/events")
   async streamEvents(
