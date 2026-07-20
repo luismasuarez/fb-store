@@ -27,6 +27,9 @@ export const navItems: NavItem[] = [
 ]
 
 export function getPageLabel(pathname: string): string {
-  const item = navItems.find((n) => n.href === pathname)
-  return item?.label ?? "Dashboard"
+  const p = pathname.split("?")[0]
+  const exact = navItems.find((n) => n.href === p)
+  if (exact) return exact.label
+  const prefix = navItems.find((n) => n.href !== "/" && p.startsWith(n.href + "/"))
+  return prefix?.label ?? "Dashboard"
 }

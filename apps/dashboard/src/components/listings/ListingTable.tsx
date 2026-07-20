@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Camera, Home, Search, ChevronLeft, ChevronRight, RefreshCw } from "@/lib/icon"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import ListingDetail from "./ListingDetail"
 
 interface Listing {
   id: string
@@ -41,7 +40,6 @@ export default function ListingTable() {
   const [listingType, setListingType] = useState("")
   const [propertyType, setPropertyType] = useState("")
   const [sort, setSort] = useState("newest")
-  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   function buildUrl(): string {
     const params = new URLSearchParams()
@@ -161,7 +159,10 @@ export default function ListingTable() {
             </TableHeader>
             <TableBody>
               {listings.map((l) => (
-                <TableRow key={l.id} className="cursor-pointer" onClick={() => setSelectedId(l.id)}>
+                <TableRow key={l.id} className="cursor-pointer" onClick={() => {
+                  window.history.pushState(null, "", `/listings?id=${l.id}`)
+                  window.dispatchEvent(new PopStateEvent("popstate"))
+                }}>
                   <TableCell className="max-w-[200px] truncate font-medium">
                     {l.images?.length > 0 && <Camera className="mr-1 inline h-3 w-3 text-muted-foreground" />}
                     {l.title || l.id.slice(0, 8)}
@@ -220,8 +221,6 @@ export default function ListingTable() {
           </div>
         )}
       </CardContent>
-
-      <ListingDetail id={selectedId} onClose={() => setSelectedId(null)} />
     </Card>
   )
 }

@@ -5,7 +5,7 @@ function getServerSnapshot() {
 }
 
 function getSnapshot() {
-  return typeof window !== 'undefined' ? window.location.pathname : '/'
+  return typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/'
 }
 
 function subscribe(cb: () => void) {
