@@ -40,7 +40,8 @@ export function useScrape() {
   }, []);
 
   const mutation = useMutation({
-    mutationFn: () => triggerScrape(),
+    mutationFn: (args?: { groupId?: string; maxPosts?: number }) =>
+      triggerScrape(args?.groupId, args?.maxPosts),
     onSuccess: (data) => {
       cleanup();
       setSse({ ...initialState, status: "running", jobId: data.jobId });

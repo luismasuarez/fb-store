@@ -6,6 +6,8 @@ vi.mock("@fb-store/shared", () => ({
 
 vi.mock("../index", () => ({
   scrapeGroup: vi.fn(),
+  savePosts: vi.fn(),
+  saveScrapeLog: vi.fn(),
 }));
 
 vi.mock("./job-tracker", () => ({
@@ -14,7 +16,7 @@ vi.mock("./job-tracker", () => ({
 }));
 
 import { getPrismaClient } from "@fb-store/shared";
-import { scrapeGroup } from "../index";
+import { scrapeGroup, savePosts, saveScrapeLog } from "../index";
 import { updateJob, notifyClients } from "./job-tracker";
 import { runScrape } from "./scrape-runner";
 
@@ -34,6 +36,7 @@ beforeEach(() => {
 
 describe("runScrape", () => {
   it("T017: calls scrapeGroup with correct params and onProgress", async () => {
+    vi.mocked(savePosts).mockResolvedValue(1);
     vi.mocked(scrapeGroup).mockImplementation(async (_profileDir, _group, _maxScrolls, _scrollDelayMs, onProgress) => {
       if (onProgress) {
         onProgress("navigating", 1, 1);
@@ -97,6 +100,7 @@ describe("runScrape", () => {
   });
 
   it("extracts groupId from URL when url is provided", async () => {
+    vi.mocked(savePosts).mockResolvedValue(1);
     vi.mocked(scrapeGroup).mockResolvedValue([mockPost]);
 
     await runScrape("job-2", {
@@ -115,6 +119,7 @@ describe("runScrape", () => {
   });
 
   it("uses groupId directly when provided, loading config from DB", async () => {
+    vi.mocked(savePosts).mockResolvedValue(1);
     vi.mocked(scrapeGroup).mockResolvedValue([mockPost]);
 
     const mockGroup = { id: "group-789", name: "DB Group Name", maxPosts: 50 };
@@ -140,6 +145,7 @@ describe("runScrape", () => {
   });
 
   it("throws BUSINESS:Group not found when groupId is unknown", async () => {
+    vi.mocked(savePosts).mockResolvedValue(0);
     const mockPrisma = {
       group: { findUnique: vi.fn().mockResolvedValue(null) },
     };
@@ -150,5 +156,62 @@ describe("runScrape", () => {
       maxPosts: 20,
       profile: "cuenta-1",
     })).rejects.toThrow("BUSINESS:Group not found");
+  });
+
+  it("T006: calls savePosts and saveScrapeLog with correct args after scrapeGroup", async () => {
+    vi.mocked(savePosts).mockResolvedValue(3);
+    vi.mocked(scrapeGroup).mockResolvedValue([mockPost, mockPost, mockPost]);
+
+    await runScrape("job-5", {
+      url: "https://facebook.com/groups/test-group",
+      maxPosts: 20,
+      profile: "cuenta-1",
+    });
+
+    expect(savePosts).toHaveBeenCalledWith([mockPost, mockPost, mockPost], "test-group");
+    expect(saveScrapeLog).toHaveBeenCalledWith({
+      groupId: "test-group",
+      postsFound: 3,
+      postsNew: 3,
+      durationMs: expect.any(Number),
+    });
+    expect(notifyClients).toHaveBeenCalledWith("job-5", {
+      type: "complete",
+      data: expect.objectContaining({ posts: [mockPost, mockPost, mockPost] }),
+    });
+  });
+
+  it("T007: savePosts failure propagates as error and no complete event", async () => {
+    vi.mocked(savePosts).mockRejectedValue(new Error("DB error"));
+    vi.mocked(scrapeGroup).mockResolvedValue([mockPost]);
+
+    await expect(runScrape("job-6", {
+      url: "https://facebook.com/groups/err-group",
+      maxPosts: 10,
+      profile: "cuenta-1",
+    })).rejects.toThrow("DB error");
+
+    expect(notifyClients).toHaveBeenCalledWith("job-6", {
+      type: "error",
+      data: { message: "DB error" },
+    });
+    expect(notifyClients).not.toHaveBeenCalledWith("job-6", {
+      type: "complete",
+      data: expect.anything(),
+    });
+  });
+
+  it("T008: metrics.postsNew equals savePosts return value", async () => {
+    vi.mocked(savePosts).mockResolvedValue(5);
+    vi.mocked(scrapeGroup).mockResolvedValue([mockPost, mockPost]);
+
+    const result = await runScrape("job-7", {
+      url: "https://facebook.com/groups/metrics-test",
+      maxPosts: 20,
+      profile: "cuenta-1",
+    });
+
+    expect(result.metrics.postsNew).toBe(5);
+    expect(result.metrics.postsFound).toBe(2);
   });
 });

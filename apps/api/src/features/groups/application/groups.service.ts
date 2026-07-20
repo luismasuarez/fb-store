@@ -60,6 +60,11 @@ export class GroupsService {
     return { data: updated };
   }
 
+  async findActive() {
+    const groups = await this.repo.findActive();
+    return { data: groups };
+  }
+
   async delete(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {

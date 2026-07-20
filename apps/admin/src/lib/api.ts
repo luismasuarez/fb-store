@@ -191,6 +191,11 @@ export async function triggerScrape(groupId?: string, maxPosts?: number): Promis
   return data;
 }
 
+export async function getJobStatus(jobId: string): Promise<{ jobId: string; status: string; progress?: any; result?: any; failedReason?: string }> {
+  const { data } = await api.get(`/scrape/status/${jobId}`);
+  return data.data ?? data;
+}
+
 export async function triggerAiProcess(rawPostIds?: string[]): Promise<{ jobId: string }> {
   const { data } = await api.post("/ai-process", { rawPostIds });
   return data;

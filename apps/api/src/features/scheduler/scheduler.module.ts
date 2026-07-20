@@ -1,11 +1,15 @@
 import { Module } from "@nestjs/common";
-import { BullModule } from "@nestjs/bullmq";
+import { ScheduleModule } from "@nestjs/schedule";
+import { AiProcessorModule } from "../ai-processor/ai-processor.module";
+import { GroupsModule } from "../groups/groups.module";
 import { SchedulerController } from "./api/scheduler.controller";
 import { SchedulerService } from "./application/scheduler.service";
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: "scrape" }),
+    ScheduleModule.forRoot(),
+    AiProcessorModule,
+    GroupsModule,
   ],
   controllers: [SchedulerController],
   providers: [SchedulerService],

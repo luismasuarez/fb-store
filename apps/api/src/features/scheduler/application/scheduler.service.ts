@@ -1,6 +1,9 @@
 import { Injectable, OnModuleInit, Logger } from "@nestjs/common";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
+import { SchedulerRegistry } from "@nestjs/schedule";
+import { CronJob } from "cron";
+import { AppConfigService } from "../../../infrastructure/config/app-config.service";
+import { GroupsService } from "../../groups/application/groups.service";
+import { AiProcessorService } from "../../ai-processor/application/ai-processor.service";
 
 interface ScheduleConfig {
   intervalMinutes: number;
@@ -18,13 +21,22 @@ export class SchedulerService implements OnModuleInit {
     hourEnd: 22,
     enabled: true,
   };
+  private isRunning = false;
+  private readonly scraperUrl: string;
+  private readonly apiKey: string;
 
   constructor(
-    @InjectQueue("scrape") private scrapeQueue: Queue,
-  ) {}
+    private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly configService: AppConfigService,
+    private readonly groupsService: GroupsService,
+    private readonly aiProcessorService: AiProcessorService,
+  ) {
+    this.scraperUrl = configService.getRequiredString("SCRAPER_URL");
+    this.apiKey = configService.getRequiredString("SCRAPER_API_KEY");
+  }
 
-  async onModuleInit() {
-    await this.registerSchedule();
+  onModuleInit() {
+    this.registerSchedule();
   }
 
   getSchedule(): ScheduleConfig {
@@ -57,17 +69,62 @@ export class SchedulerService implements OnModuleInit {
       this.config.enabled = update.enabled;
     }
 
-    await this.registerSchedule();
+    this.registerSchedule();
     return this.getSchedule();
   }
 
-  private async registerSchedule() {
-    if (!this.config.enabled) {
-      try {
-        await this.scrapeQueue.removeJobScheduler("auto-scrape");
-      } catch {
-        // not registered yet
+  async executeScrapeCycle(): Promise<void> {
+    if (this.isRunning) {
+      this.logger.warn("Previous cycle still running, skipping");
+      return;
+    }
+
+    if (!this.config.enabled) return;
+
+    this.isRunning = true;
+    this.logger.log("Scrape cycle started");
+
+    try {
+      const { data: groups } = await this.groupsService.findActive();
+
+      for (const group of groups) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 300_000);
+
+          const res = await fetch(`${this.scraperUrl}/api/v1/scrape`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": this.apiKey,
+            },
+            body: JSON.stringify({ groupId: group.id, maxPosts: group.maxPosts, wait: true }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeout);
+
+          if (res.ok) {
+            await this.aiProcessorService.triggerProcessing();
+          }
+        } catch (err) {
+          this.logger.error(`Error scraping group ${group.id}: ${(err as Error).message}`);
+        }
       }
+    } finally {
+      this.isRunning = false;
+      this.logger.log("Scrape cycle completed");
+    }
+  }
+
+  private registerSchedule(): void {
+    try {
+      this.schedulerRegistry.deleteCronJob("auto-scrape");
+    } catch {
+      // not registered yet
+    }
+
+    if (!this.config.enabled) {
       this.logger.log("Scheduler disabled");
       return;
     }
@@ -78,11 +135,9 @@ export class SchedulerService implements OnModuleInit {
       this.config.hourEnd,
     );
 
-    await this.scrapeQueue.upsertJobScheduler(
-      "auto-scrape",
-      { pattern: cron },
-      { name: "scrape-all", data: {} },
-    );
+    const job = new CronJob(cron, () => this.executeScrapeCycle());
+    this.schedulerRegistry.addCronJob("auto-scrape", job);
+    job.start();
 
     this.logger.log(`Scheduler registered: every ${this.config.intervalMinutes}min, ${this.config.hourStart}:00-${this.config.hourEnd}:00`);
   }

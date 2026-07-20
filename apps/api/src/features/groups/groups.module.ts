@@ -8,5 +8,6 @@ import { PrismaModule } from "../../infrastructure/database/prisma/prisma.module
   imports: [PrismaModule],
   controllers: [GroupsController],
   providers: [GroupsService, GroupRepository],
+  exports: [GroupsService],
 })
 export class GroupsModule {}

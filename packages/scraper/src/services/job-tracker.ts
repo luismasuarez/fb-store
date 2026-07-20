@@ -81,6 +81,32 @@ export function getActiveJobForProfile(profile: string): JobState | undefined {
   return undefined;
 }
 
+const TTL_MS = 30 * 60 * 1000;
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startCleanup(): void {
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, job] of jobs.entries()) {
+      if (
+        (job.status === "completed" || job.status === "failed") &&
+        now - job.createdAt.getTime() >= TTL_MS
+      ) {
+        jobs.delete(id);
+      }
+    }
+  }, CLEANUP_INTERVAL_MS);
+}
+
+export function stopCleanup(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+}
+
 const sseCompletions = new Map<string, () => void>();
 
 export function registerSSE(jobId: string, client: SSEClient): void {
