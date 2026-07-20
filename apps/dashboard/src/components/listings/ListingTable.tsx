@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Home, Search, ChevronLeft, ChevronRight, RefreshCw } from "@/lib/icon"
+import { Camera, Home, Search, ChevronLeft, ChevronRight, RefreshCw } from "@/lib/icon"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
+import ListingDetail from "./ListingDetail"
 
 interface Listing {
   id: string
@@ -40,6 +41,7 @@ export default function ListingTable() {
   const [listingType, setListingType] = useState("")
   const [propertyType, setPropertyType] = useState("")
   const [sort, setSort] = useState("newest")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   function buildUrl(): string {
     const params = new URLSearchParams()
@@ -159,9 +161,9 @@ export default function ListingTable() {
             </TableHeader>
             <TableBody>
               {listings.map((l) => (
-                <TableRow key={l.id}>
+                <TableRow key={l.id} className="cursor-pointer" onClick={() => setSelectedId(l.id)}>
                   <TableCell className="max-w-[200px] truncate font-medium">
-                    {l.images?.length > 0 && <span className="mr-1">📷</span>}
+                    {l.images?.length > 0 && <Camera className="mr-1 inline h-3 w-3 text-muted-foreground" />}
                     {l.title || l.id.slice(0, 8)}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{formatPrice(l.price, l.currency)}</TableCell>
@@ -218,6 +220,8 @@ export default function ListingTable() {
           </div>
         )}
       </CardContent>
+
+      <ListingDetail id={selectedId} onClose={() => setSelectedId(null)} />
     </Card>
   )
 }

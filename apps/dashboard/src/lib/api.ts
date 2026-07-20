@@ -92,6 +92,8 @@ export const api = {
         data: any[]
         pagination: { page: number; limit: number; total: number; totalPages: number }
       }>(`/listings?${params}`),
+    get: (id: string) =>
+      requestRaw<{ data: any }>(`/listings/${encodeURIComponent(id)}`),
   },
 }
 
