@@ -54,7 +54,7 @@ export default function ListingDetailPage({ id }: { id: string }) {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="space-y-4">
         <Skeleton className="h-8 w-32" />
         <Card>
           <CardContent className="space-y-4 pt-6">
@@ -70,7 +70,7 @@ export default function ListingDetailPage({ id }: { id: string }) {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="space-y-4">
         <Button variant="ghost" onClick={goBack}>
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Listings
@@ -83,7 +83,7 @@ export default function ListingDetailPage({ id }: { id: string }) {
   const l = data
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="space-y-4">
       <Button variant="ghost" onClick={goBack}>
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Listings
