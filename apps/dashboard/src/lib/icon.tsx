@@ -39,6 +39,7 @@ export {
   UserPlus,
   Users,
   X,
+  XCircle,
 } from 'lucide-react'
 
 export type { LucideProps } from 'lucide-react'

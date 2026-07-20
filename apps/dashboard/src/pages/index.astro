@@ -6,11 +6,7 @@ import RecentScrapes from "@/components/dashboard/RecentScrapes"
 ---
 
 <Layout>
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-heading font-semibold tracking-tight">Overview</h1>
-      <p class="text-sm text-muted-foreground">Monitor your Facebook scraper activity.</p>
-    </div>
+  <div class="space-y-8">
     <StatsCards client:load />
     <QuickScrape client:load />
     <RecentScrapes client:load />

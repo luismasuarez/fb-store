@@ -3,29 +3,15 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import {
-  LayoutDashboard,
-  Users,
-  List,
-  FileText,
-  Activity,
-} from "@/lib/icon"
+import { Activity } from "@/lib/icon"
+import { navItems } from "@/lib/nav"
 import { useLocation } from "@/lib/use-location"
-
-const navItems = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/accounts", label: "Accounts", icon: Users },
-  { href: "/groups", label: "Groups", icon: List },
-  { href: "/logs", label: "Scrape Logs", icon: FileText },
-  { href: "/schedule", label: "Schedule", icon: Activity },
-]
 
 export default function AppSidebar() {
   const pathname = useLocation()
@@ -40,7 +26,6 @@ export default function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
