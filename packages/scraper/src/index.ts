@@ -175,13 +175,19 @@ export async function scrapeGroup(
           console.log(`📸 Post ${i}: después de navegación: ${urls.length} URLs`);
         }
 
-        // Deduplicate and filter
-        const uniqueUrls = Array.from(new Set(urls)).filter(
-          (s) => s && !s.startsWith("data:") && !s.includes("svg")
-        );
-        console.log(`📸 Post ${i}: ${uniqueUrls.length} URLs únicas después de filtrar`);
+        // Deduplicate: keep unique image paths (remove URL param variants)
+        const seen = new Set<string>();
+        const uniqueUrls = Array.from(new Set(urls))
+          .filter((s) => s && s.includes("scontent"))
+          .filter((url) => {
+            const key = url.split("?")[0];
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        console.log(`📸 Post ${i}: ${uniqueUrls.length} URLs únicas después de dedup`);
 
-        if (uniqueUrls.length > post.images.length) {
+        if (uniqueUrls.length > 0) {
           console.log(`📸 Post ${i}: ${post.images.length} → ${uniqueUrls.length} imágenes ✅`);
           post.images = uniqueUrls;
         } else {
