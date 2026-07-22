@@ -96,6 +96,21 @@ export default function GalleryLightbox({ images, initialIndex, onClose }: Galle
   }, [onClose, goPrev, goNext])
 
   useEffect(() => {
+    if (zoomed) return
+    let lastWheel = 0
+    const handler = (e: WheelEvent) => {
+      const now = Date.now()
+      if (now - lastWheel < 400) return
+      lastWheel = now
+      if (e.deltaY > 0 || e.deltaX > 0) goNext()
+      else if (e.deltaY < 0 || e.deltaX < 0) goPrev()
+    }
+    const el = containerRef.current
+    el?.addEventListener("wheel", handler, { passive: true })
+    return () => el?.removeEventListener("wheel", handler)
+  }, [goPrev, goNext, zoomed])
+
+  useEffect(() => {
     containerRef.current?.focus()
   }, [])
 
