@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { getPrismaClient } from "../db";
 import { runScrape } from "../services/scrape-runner";
+import { getDefaultProfile } from "../services/profile-manager";
 
 interface ScheduleConfig {
   intervalMinutes: number;
@@ -16,6 +17,11 @@ async function executeCycle(): Promise<void> {
   if (running || !config.enabled) return;
   running = true;
   try {
+    const profile = await getDefaultProfile();
+    if (!profile) {
+      console.error("[Scheduler] No default profile available. Skipping cycle.");
+      return;
+    }
     const db = getPrismaClient();
     const groups = await db.group.findMany({ where: { isActive: true } });
     for (const group of groups) {
@@ -23,7 +29,7 @@ async function executeCycle(): Promise<void> {
         await runScrape(crypto.randomUUID(), {
           groupId: group.id,
           maxPosts: group.maxPosts,
-          profile: "cuenta-1",
+          profile,
         });
       } catch (err) {
         console.error(`[Scheduler] Error on group ${group.id}:`, (err as Error).message);

@@ -6,6 +6,9 @@ vi.mock("../db", () => ({
 }));
 vi.mock("../services/job-tracker");
 vi.mock("../services/scrape-runner");
+vi.mock("../services/profile-manager", () => ({
+  getDefaultProfile: vi.fn().mockResolvedValue("cuenta-1"),
+}));
 
 import { getPrismaClient } from "../db";
 import { createJob, getJob, getActiveJobForProfile, updateJob, registerSSE, notifyClients, removeSSE, onJobCompletion, removeJobCompletion } from "../services/job-tracker";

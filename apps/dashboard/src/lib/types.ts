@@ -3,6 +3,7 @@ export interface Profile {
   createdAt: string
   lastUsedAt?: string
   loginStatus: 'unknown' | 'alive' | 'dead' | 'locked'
+  isDefault: boolean
 }
 
 export interface SessionCheckResult {

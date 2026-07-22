@@ -5,6 +5,8 @@ vi.mock("../services/profile-manager", () => ({
   createProfile: vi.fn(),
   deleteProfile: vi.fn(),
   checkSession: vi.fn(),
+  setDefaultProfile: vi.fn(),
+  getDefaultProfile: vi.fn(),
 }));
 
 import { Hono } from "hono";
@@ -22,7 +24,7 @@ describe("profiles route", () => {
   describe("GET /profiles", () => {
     it("returns profile list", async () => {
       vi.mocked(profileManager.listProfiles).mockResolvedValue([
-        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
+        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown", isDefault: false },
       ]);
 
       const res = await app.request("/profiles");
@@ -41,6 +43,7 @@ describe("profiles route", () => {
         name: "cuenta-2",
         createdAt: "2026-01-01T00:00:00.000Z",
         loginStatus: "unknown",
+        isDefault: false,
       });
 
       const res = await app.request("/profiles", {

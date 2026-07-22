@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { CreateProfileRequestSchema } from "../schemas";
-import { listProfiles, createProfile, deleteProfile, checkSession } from "../services/profile-manager";
+import { listProfiles, createProfile, setDefaultProfile, getDefaultProfile, deleteProfile, checkSession } from "../services/profile-manager";
 import { join } from "node:path";
 
 type Variables = { requestId: string };
@@ -11,6 +11,17 @@ const profilesRoute = new Hono<{ Variables: Variables }>();
 profilesRoute.get("/profiles", async (c: Context<{ Variables: Variables }>) => {
   const profiles = await listProfiles();
   return c.json({ data: { profiles } });
+});
+
+profilesRoute.get("/profiles/default", async (c: Context<{ Variables: Variables }>) => {
+  const name = await getDefaultProfile();
+  return c.json({ data: { name } });
+});
+
+profilesRoute.put("/profiles/:name/default", async (c: Context<{ Variables: Variables }>) => {
+  const name = c.req.param("name")!;
+  await setDefaultProfile(name);
+  return c.json({ data: { name } });
 });
 
 profilesRoute.post("/profiles", async (c: Context<{ Variables: Variables }>) => {
@@ -30,7 +41,7 @@ profilesRoute.post("/profiles", async (c: Context<{ Variables: Variables }>) => 
     }, 409);
   }
 
-  const profile = await createProfile(parsed.data.name);
+  const profile = await createProfile(parsed.data.name, parsed.data.isDefault);
   const profileDir = process.env.PROFILE_DIR || "/app/profiles";
 
   return c.json({

@@ -9,6 +9,7 @@ import {
 } from "../services/job-tracker";
 import type { SSEClient } from "../services/job-tracker";
 import { runScrape } from "../services/scrape-runner";
+import { getDefaultProfile } from "../services/profile-manager";
 import { AppError } from "../lib/app-error";
 import { toAppError } from "../lib/prisma-errors";
 
@@ -17,6 +18,11 @@ const scrapeRoute = new Hono();
 scrapeRoute.post("/scrape", async (c: Context<{ Variables: { requestId: string } }>) => {
   const body = await c.req.json();
   const parsed = ScrapeRequestSchema.parse(body);
+
+  const profile = parsed.profile ?? await getDefaultProfile();
+  if (!profile) {
+    throw new AppError("validation_error", "No profile specified and no default profile available. Create a profile first.", 400);
+  }
 
   if (parsed.url) {
     const fbMatch = parsed.url.match(/facebook\.com\/groups\/([^/?]+)/);
@@ -31,7 +37,7 @@ scrapeRoute.post("/scrape", async (c: Context<{ Variables: { requestId: string }
     if (!group) throw new AppError("not_found", "Group not found", 404)
   }
 
-  const activeJob = getActiveJobForProfile(parsed.profile);
+  const activeJob = getActiveJobForProfile(profile);
   if (activeJob) {
     return c.json({
       jobId: activeJob.id,
@@ -46,12 +52,14 @@ scrapeRoute.post("/scrape", async (c: Context<{ Variables: { requestId: string }
     url: parsed.url,
     groupId: parsed.groupId,
     maxPosts: parsed.maxPosts,
-    profile: parsed.profile,
+    profile,
   });
+
+  const scrapeConfig = { ...parsed, profile };
 
   if (parsed.wait) {
     try {
-      const result = await runScrape(jobId, parsed);
+      const result = await runScrape(jobId, scrapeConfig);
       updateJob(jobId, { status: "completed", result });
       return c.json(result, 200);
     } catch (err) {
@@ -61,7 +69,7 @@ scrapeRoute.post("/scrape", async (c: Context<{ Variables: { requestId: string }
     }
   }
 
-  runScrape(jobId, parsed).then((result) => {
+  runScrape(jobId, scrapeConfig).then((result) => {
     updateJob(jobId, { status: "completed", result });
   }).catch((err: any) => {
     const appErr = err instanceof AppError ? err : toAppError(err);

@@ -33,9 +33,11 @@ async function requestRaw<T>(path: string, opts: RequestInit = {}): Promise<T> {
 export const api = {
   profiles: {
     list: () => request<{ profiles: Profile[] }>('/profiles').then((d) => d.profiles),
-    create: (name: string) => request<{ name: string; path: string }>('/profiles', { method: 'POST', body: JSON.stringify({ name }) }),
+    create: (name: string, isDefault?: boolean) => request<{ name: string; path: string }>('/profiles', { method: 'POST', body: JSON.stringify({ name, isDefault }) }),
     remove: (name: string) => request<void>(`/profiles/${encodeURIComponent(name)}`, { method: 'DELETE' }),
     check: (name: string) => request<SessionCheckResult>(`/profiles/${encodeURIComponent(name)}/check`),
+    setDefault: (name: string) => request<{ name: string }>(`/profiles/${encodeURIComponent(name)}/default`, { method: 'PUT' }),
+    getDefault: () => request<{ name: string | null }>('/profiles/default'),
   },
 
   groups: {

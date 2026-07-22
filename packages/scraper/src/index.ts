@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 config({ path: resolve(process.env.INIT_CWD || process.cwd(), ".env") });
 import { getPrismaClient } from "./db";
 import { sanitizeFacebookText } from "./sanitize";
-import { createContext } from "./browser";
+import { createContext, getProfileBaseDir } from "./browser";
+import { getDefaultProfile } from "./services/profile-manager";
 import { EXTRACTOR_SCRIPT } from "./extractor";
 import type { RawPost } from "./extractor";
 
@@ -285,7 +286,10 @@ export async function saveScrapeLog(metrics: ScrapeMetrics): Promise<void> {
 }
 
 export async function main() {
-  const profileDir = process.env.PROFILE_DIR ?? "./profiles/cuenta-1";
+  const defaultProfile = await getDefaultProfile();
+  const profileDir = defaultProfile
+    ? resolve(getProfileBaseDir(), defaultProfile)
+    : (process.env.PROFILE_DIR ?? resolve(process.env.INIT_CWD || process.cwd(), "profiles", "cuenta-1"));
   const scrollDelay = Number(process.env.SCROLL_DELAY_MS) || 4000;
 
   const prisma = getPrismaClient();

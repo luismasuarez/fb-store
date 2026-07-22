@@ -76,11 +76,15 @@
       <div class="form-row">
         <div class="form-group" style="flex:1">
           <label for="account-name">Account name</label>
-          <input type="text" id="account-name" placeholder="e.g. cuenta-2" style="width:100%" pattern="^[a-zA-Z0-9_-]+$" title="Letters, numbers, hyphens and underscores only">
+          <input type="text" id="account-name" placeholder="e.g. main-account" style="width:100%" pattern="^[a-zA-Z0-9_-]+$" title="Letters, numbers, hyphens and underscores only">
         </div>
         <button onclick="createAccount()" class="primary" style="padding:0.35rem 0.75rem">Create</button>
         <button onclick="hideNewAccountForm()" style="padding:0.35rem 0.75rem">Cancel</button>
       </div>
+      <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;font-size:0.85rem;cursor:pointer">
+        <input type="checkbox" id="account-is-default" checked>
+        Set as default account
+      </label>
       <div id="account-creation-msg" style="margin-top:0.4rem;font-size:0.8rem"></div>
     </div>
     <div id="profiles-content">
@@ -145,6 +149,18 @@
       return `<span class="${cls}">${escapeHtml(s || "unknown")}</span>`;
     }
 
+    let activeDropdown = null;
+
+    function toggleDropdown(name, e) {
+      if (e) e.stopPropagation();
+      if (activeDropdown === name) {
+        activeDropdown = null;
+      } else {
+        activeDropdown = name;
+      }
+      loadProfiles();
+    }
+
     async function loadProfiles() {
       const container = document.getElementById("profiles-content");
       const select = document.getElementById("profile-select");
@@ -162,30 +178,51 @@
         return;
       }
 
+      const defaultProfile = profiles.find(p => p.isDefault) || profiles[0];
       select.innerHTML = `<option value="">(select account)</option>` +
-        profiles.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("");
+        profiles.map(p => `<option value="${escapeHtml(p.name)}"${p.name === defaultProfile.name ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join("");
 
       const rows = profiles.map(p => {
         const name = escapeHtml(p.name);
         const status = statusBadge(p.loginStatus);
+        const defaultBadge = p.isDefault ? '<span class="badge" style="background:#1e3a5f;color:#93c5fd;margin-left:0.4rem">Default</span>' : '';
+        const isOpen = activeDropdown === p.name;
+        const defaultItem = p.isDefault
+          ? '<span style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;color:#666;font-size:0.8rem;cursor:default"><span style="color:#6af">✓</span> Default</span>'
+          : `<span style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;font-size:0.8rem;cursor:pointer" onclick="setDefaultProfile('${name}');event.stopPropagation()">☆ Set as default</span>`;
         return `<tr>
-          <td style="font-weight:600">${name}</td>
+          <td style="font-weight:600">${name}${defaultBadge}</td>
           <td>${status}</td>
-          <td class="actions">
-            <button onclick="checkSession('${name}',this)">Check</button>
-            <button onclick="loginProfile('${name}')">Login</button>
-            <button onclick="deleteProfile('${name}',this)" style="color:#fca5a5">Delete</button>
+          <td class="actions" style="position:relative">
+            <button onclick="toggleDropdown('${name}',event)" style="background:transparent;border:none;cursor:pointer;padding:0.25rem 0.5rem;font-size:1.1rem;line-height:1">⋮</button>
+            ${isOpen ? `<div style="position:absolute;right:0;top:100%;z-index:10;background:#2a2a2a;border:1px solid #555;border-radius:4px;min-width:160px;padding:0.25rem">
+              ${defaultItem}
+              <div style="border-top:1px solid #444;margin:0.15rem 0"></div>
+              <span style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;font-size:0.8rem;cursor:pointer" onclick="checkSession('${name}',this);event.stopPropagation()">Check session</span>
+              <span style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;font-size:0.8rem;cursor:pointer" onclick="loginProfile('${name}');event.stopPropagation()">Login via VNC</span>
+              <div style="border-top:1px solid #444;margin:0.15rem 0"></div>
+              <span style="display:flex;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;font-size:0.8rem;cursor:pointer;color:#fca5a5" onclick="deleteProfile('${name}',this);event.stopPropagation()">Delete account</span>
+            </div>` : ''}
           </td>
         </tr>`;
       }).join("");
 
-      container.innerHTML = `<table><thead><tr><th>Account</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+      container.innerHTML = `<table><thead><tr><th>Account</th><th>Status</th><th style="width:50px">Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
+
+    // Close dropdown on outside click
+    document.addEventListener("click", function() {
+      if (activeDropdown !== null) {
+        activeDropdown = null;
+        loadProfiles();
+      }
+    });
 
     function showNewAccountForm() {
       document.getElementById("new-account-btn").style.display = "none";
       document.getElementById("new-account-form").style.display = "block";
       document.getElementById("account-name").value = "";
+      document.getElementById("account-is-default").checked = true;
       document.getElementById("account-creation-msg").innerHTML = "";
       document.getElementById("account-name").focus();
     }
@@ -196,8 +233,17 @@
       document.getElementById("account-creation-msg").innerHTML = "";
     }
 
+    async function setDefaultProfile(name) {
+      await apiFetch("/profiles/" + encodeURIComponent(name) + "/default", {
+        method: "PUT",
+      });
+      activeDropdown = null;
+      loadProfiles();
+    }
+
     async function createAccount() {
       const name = document.getElementById("account-name").value.trim();
+      const isDefault = document.getElementById("account-is-default").checked;
       const msgDiv = document.getElementById("account-creation-msg");
 
       if (!name) { msgDiv.innerHTML = '<span class="error-text">Name is required</span>'; return; }
@@ -205,7 +251,7 @@
 
       const res = await apiFetch("/profiles", {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, isDefault }),
       });
 
       if (res.ok) {

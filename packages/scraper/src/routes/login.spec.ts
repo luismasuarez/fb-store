@@ -26,7 +26,7 @@ describe("login route", () => {
   describe("POST /login", () => {
     it("returns VNC URL with 201 [T045]", async () => {
       vi.mocked(profileManager.listProfiles).mockResolvedValue([
-        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
+        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown", isDefault: true },
       ]);
       vi.mocked(loginManager.startLogin).mockResolvedValue({
         profile: "cuenta-1",
@@ -50,7 +50,7 @@ describe("login route", () => {
 
     it("returns 400 for non-existent profile [T046]", async () => {
       vi.mocked(profileManager.listProfiles).mockResolvedValue([
-        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
+        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown", isDefault: true },
       ]);
 
       const res = await app.request("/login", {
@@ -64,7 +64,7 @@ describe("login route", () => {
 
     it("returns 409 when already in progress [T047]", async () => {
       vi.mocked(profileManager.listProfiles).mockResolvedValue([
-        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown" },
+        { name: "cuenta-1", createdAt: "2026-01-01T00:00:00.000Z", loginStatus: "unknown", isDefault: true },
       ]);
       vi.mocked(loginManager.startLogin).mockRejectedValue(
         new Error("BUSINESS:Login already in progress"),

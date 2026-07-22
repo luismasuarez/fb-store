@@ -6,7 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
-import { Plus, Trash2, LogIn, Eye, Loader2 } from "@/lib/icon"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Plus, Loader2, MoreHorizontal, LogIn, Eye, CheckCircle } from "@/lib/icon"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import StatusBadge from "@/components/shared/StatusBadge"
@@ -16,6 +19,7 @@ import type { Profile } from "@/lib/types"
 export default function AccountTable() {
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [newName, setNewName] = useState("")
+  const [newIsDefault, setNewIsDefault] = useState(false)
   const [creating, setCreating] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null)
@@ -25,7 +29,15 @@ export default function AccountTable() {
     api.profiles.list().then(setProfiles).catch(() => setProfiles([]))
   }
 
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+  }, [])
+
+  useEffect(() => {
+    if (dialogOpen && profiles) {
+      setNewIsDefault(profiles.length === 0)
+    }
+  }, [dialogOpen, profiles])
 
   async function create() {
     if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
@@ -34,8 +46,9 @@ export default function AccountTable() {
     }
     setCreating(true)
     try {
-      await api.profiles.create(newName)
+      await api.profiles.create(newName, newIsDefault)
       setNewName("")
+      setNewIsDefault(false)
       setDialogOpen(false)
       load()
       toast.success("Account created")
@@ -43,6 +56,19 @@ export default function AccountTable() {
       toast.error(err.message)
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function setDefault(name: string) {
+    setPendingAction(`default-${name}`)
+    try {
+      await api.profiles.setDefault(name)
+      load()
+      toast.success(`"${name}" is now the default account`)
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setPendingAction(null)
     }
   }
 
@@ -109,10 +135,21 @@ export default function AccountTable() {
                     <Label htmlFor="name">Account name</Label>
                     <Input
                       id="name"
-                      placeholder="e.g. cuenta-2"
+                      placeholder="e.g. main-account"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       pattern="^[a-zA-Z0-9_-]+$"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <Label htmlFor="default-switch" className="text-sm font-medium">Set as default account</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Will be used by the scheduler and quick scrape</p>
+                    </div>
+                    <Switch
+                      id="default-switch"
+                      checked={newIsDefault}
+                      onCheckedChange={setNewIsDefault}
                     />
                   </div>
                   <Button onClick={create} disabled={creating} className="w-full">
@@ -145,46 +182,69 @@ export default function AccountTable() {
               <TableBody>
                 {profiles.map((p) => (
                   <TableRow key={p.name}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {p.name}
+                        {p.isDefault && <Badge variant="default" className="pointer-events-none">Default</Badge>}
+                      </div>
+                    </TableCell>
                     <TableCell><StatusBadge status={p.loginStatus} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pendingAction === `check-${p.name}`}
-                          onClick={() => checkSession(p.name)}
-                        >
-                          {pendingAction === `check-${p.name}` ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {!p.isDefault ? (
+                            <DropdownMenuItem
+                              onClick={() => setDefault(p.name)}
+                              disabled={pendingAction === `default-${p.name}`}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Set as default
+                            </DropdownMenuItem>
                           ) : (
-                            "Check"
+                            <DropdownMenuItem disabled className="text-muted-foreground">
+                              <CheckCircle className="h-4 w-4" />
+                              Default account
+                            </DropdownMenuItem>
                           )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pendingAction === `login-${p.name}`}
-                          onClick={() => loginProfile(p.name)}
-                        >
-                          {pendingAction === `login-${p.name}` ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <><LogIn className="mr-1 h-3 w-3" />Login</>
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 hover:text-red-500"
-                          onClick={() => setDeleteTarget(p)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                          <DropdownMenuItem
+                            onClick={() => checkSession(p.name)}
+                            disabled={pendingAction === `check-${p.name}`}
+                          >
+                            {pendingAction === `check-${p.name}` ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                            Check session
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => loginProfile(p.name)}
+                            disabled={pendingAction === `login-${p.name}`}
+                          >
+                            {pendingAction === `login-${p.name}` ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <LogIn className="h-4 w-4" />
+                            )}
+                            Login via VNC
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setDeleteTarget(p)}
+                          >
+                            Delete account
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

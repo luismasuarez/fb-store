@@ -19,7 +19,11 @@ export default function QuickScrape() {
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   useEffect(() => {
-    api.profiles.list().then(setProfiles).catch(() => {})
+    api.profiles.list().then((list) => {
+      setProfiles(list)
+      const def = list.find((p) => p.isDefault)
+      if (def) setProfile(def.name)
+    }).catch(() => {})
     api.groups.list().then(setGroups).catch(() => {})
   }, [])
 

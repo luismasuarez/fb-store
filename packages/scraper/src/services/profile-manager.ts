@@ -6,6 +6,7 @@ export interface ProfileMeta {
   createdAt: string;
   lastUsedAt?: string;
   loginStatus: "unknown" | "alive" | "dead" | "locked";
+  isDefault?: boolean;
 }
 
 export interface Profile {
@@ -13,6 +14,7 @@ export interface Profile {
   createdAt: string;
   lastUsedAt?: string;
   loginStatus: ProfileMeta["loginStatus"];
+  isDefault: boolean;
 }
 
 export interface SessionCheckResult {
@@ -46,12 +48,14 @@ export async function listProfiles(): Promise<Profile[]> {
           createdAt: meta.createdAt,
           lastUsedAt: meta.lastUsedAt,
           loginStatus: meta.loginStatus,
+          isDefault: meta.isDefault ?? false,
         });
       } catch {
         profiles.push({
           name: entry.name,
           createdAt: new Date().toISOString(),
           loginStatus: "unknown",
+          isDefault: false,
         });
       }
     }
@@ -60,7 +64,7 @@ export async function listProfiles(): Promise<Profile[]> {
   return profiles.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function createProfile(name: string): Promise<Profile> {
+export async function createProfile(name: string, isDefault?: boolean): Promise<Profile> {
   const profileDir = getProfileDirFromEnv();
   const dir = join(profileDir, name);
 
@@ -71,20 +75,64 @@ export async function createProfile(name: string): Promise<Profile> {
     if (err instanceof Error && err.message.startsWith("BUSINESS:")) throw err;
   }
 
+  const existing = await listProfiles();
+  const isFirst = existing.length === 0;
+  const shouldBeDefault = isDefault || isFirst;
+
   await mkdir(dir, { recursive: true });
 
   const meta: ProfileMeta = {
     createdAt: new Date().toISOString(),
     loginStatus: "unknown",
+    isDefault: false,
   };
 
   await writeFile(join(dir, ".meta.json"), JSON.stringify(meta, null, 2));
+
+  if (shouldBeDefault) {
+    await setDefaultProfile(name);
+  }
 
   return {
     name,
     createdAt: meta.createdAt,
     loginStatus: meta.loginStatus,
+    isDefault: shouldBeDefault,
   };
+}
+
+export async function setDefaultProfile(name: string): Promise<void> {
+  const profileDir = getProfileDirFromEnv();
+  const entries = await readdir(profileDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const metaPath = join(profileDir, entry.name, ".meta.json");
+    const isTarget = entry.name === name;
+
+    try {
+      const raw = await readFile(metaPath, "utf-8");
+      const meta: ProfileMeta = JSON.parse(raw);
+      meta.isDefault = isTarget;
+      await writeFile(metaPath, JSON.stringify(meta, null, 2));
+    } catch {
+      if (isTarget) {
+        const meta: ProfileMeta = {
+          createdAt: new Date().toISOString(),
+          loginStatus: "unknown",
+          isDefault: true,
+        };
+        await writeFile(metaPath, JSON.stringify(meta, null, 2));
+      }
+    }
+  }
+}
+
+export async function getDefaultProfile(): Promise<string | null> {
+  const profiles = await listProfiles();
+  const defaultProfile = profiles.find((p) => p.isDefault);
+  if (defaultProfile) return defaultProfile.name;
+  return profiles.length > 0 ? profiles[0].name : null;
 }
 
 export async function deleteProfile(name: string): Promise<void> {
@@ -97,7 +145,22 @@ export async function deleteProfile(name: string): Promise<void> {
     throw new Error("BUSINESS:Profile not found");
   }
 
+  let wasDefault = false;
+  try {
+    const metaPath = join(dir, ".meta.json");
+    const raw = await readFile(metaPath, "utf-8");
+    const meta: ProfileMeta = JSON.parse(raw);
+    wasDefault = meta.isDefault === true;
+  } catch {}
+
   await rm(dir, { recursive: true, force: true });
+
+  if (wasDefault) {
+    const remaining = await listProfiles();
+    if (remaining.length > 0) {
+      await setDefaultProfile(remaining[0].name);
+    }
+  }
 }
 
 async function updateProfileMeta(name: string, updates: Partial<ProfileMeta>): Promise<void> {
