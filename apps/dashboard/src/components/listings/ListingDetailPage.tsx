@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { ArrowLeft, Building2, Camera, ExternalLink, MapPin, Phone, User } from "@/lib/icon"
+import GalleryLightbox from "./GalleryLightbox"
 
 interface ListingDetail {
   id: string
@@ -38,6 +39,8 @@ interface ListingDetail {
 
 export default function ListingDetailPage({ id }: { id: string }) {
   const [data, setData] = useState<ListingDetail | null>(null)
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
 
   useEffect(() => {
     api.listings.get(id)
@@ -214,6 +217,14 @@ export default function ListingDetailPage({ id }: { id: string }) {
             </>
           )}
 
+          {galleryOpen && l.images && (
+            <GalleryLightbox
+              images={l.images as { url: string; mime: string; data: string }[]}
+              initialIndex={galleryIndex}
+              onClose={() => setGalleryOpen(false)}
+            />
+          )}
+
           {l.images && l.images.length > 0 && (
             <>
               <Separator />
@@ -224,15 +235,20 @@ export default function ListingDetailPage({ id }: { id: string }) {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {l.images.map((img: any, i: number) => (
-                    <div key={i} className="h-20 w-20 overflow-hidden rounded-md border bg-muted">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setGalleryIndex(i); setGalleryOpen(true) }}
+                      className="h-20 w-20 overflow-hidden rounded-md border bg-muted transition-all duration-200 hover:scale-[1.08] hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
                       {img?.data ? (
-                        <img src={`data:image/jpeg;base64,${img.data}`} alt="" className="h-full w-full object-cover" />
+                        <img src={`data:${img.mime || "image/jpeg"};base64,${img.data}`} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-muted-foreground">
                           <Camera className="h-5 w-5" />
                         </div>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

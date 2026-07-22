@@ -16,6 +16,7 @@ export {
   Clock,
   Copy,
   ExternalLink,
+  Expand,
   Eye,
   EyeOff,
   FileText,
