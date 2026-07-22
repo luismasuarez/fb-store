@@ -13,7 +13,9 @@ const BASE = import.meta.env.PUBLIC_API_URL ?? ''
 const API_KEY = import.meta.env.PUBLIC_API_KEY ?? ''
 
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  return requestRaw<{ data?: T }>(path, opts).then((b) => (b.data ?? b) as T)
+  const raw = await requestRaw<{ data?: T }>(path, opts)
+  if (raw === undefined) return undefined as T
+  return (raw.data ?? raw) as T
 }
 
 async function requestRaw<T>(path: string, opts: RequestInit = {}): Promise<T> {
