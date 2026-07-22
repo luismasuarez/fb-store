@@ -40,7 +40,18 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+MUST verify compliance against all principles in `.specify/memory/constitution.md`:
+
+- [ ] **SDD (I)**: Does this feature have an approved spec before planning?
+- [ ] **TDD (II)**: Are tests written and known to fail before implementation?
+- [ ] **SOLID (III)**: Does the design respect Single Responsibility per
+  module? Does it depend on abstractions, not concretions?
+- [ ] **DRY & Facade (IV)**: Is there a single entry point per dependency?
+  Is duplicated logic extracted to shared?
+- [ ] **Pipeline (V)**: Does the feature add a new pipeline stage, or modify
+  an existing one while maintaining stage independence?
+- [ ] **Complexity**: If the design violates any principle, fill in the
+  Complexity Tracking table below with justification.
 
 ## Project Structure
 

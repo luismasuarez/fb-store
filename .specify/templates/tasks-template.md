@@ -17,6 +17,8 @@ description: "Task list template for feature implementation"
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- **[Stage]**: Pipeline stage (Scrape / Classify / Extract / Transform /
+  Store) per constitution Principle V
 - Include exact file paths in descriptions
 
 ## Path Conventions
