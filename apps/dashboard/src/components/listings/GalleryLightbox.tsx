@@ -15,6 +15,53 @@ interface GalleryLightboxProps {
   onClose: () => void
 }
 
+function GalleryFilmstrip({
+  images,
+  currentIndex,
+  onSelect,
+}: {
+  images: GalleryImage[]
+  currentIndex: number
+  onSelect: (i: number) => void
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current?.children[currentIndex] as HTMLElement | undefined
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+  }, [currentIndex])
+
+  if (images.length <= 1) return null
+
+  return (
+    <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex justify-center bg-gradient-to-t from-black/60 to-transparent pt-10 pb-3">
+      <div
+        ref={scrollRef}
+        className="pointer-events-auto flex max-w-[90vw] gap-1.5 overflow-x-auto px-2 scrollbar-none"
+      >
+        {images.map((img, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSelect(i)}
+            className={`h-12 w-16 shrink-0 overflow-hidden rounded border-2 transition-all duration-200 focus-visible:outline-none ${
+              i === currentIndex
+                ? "border-white opacity-100"
+                : "border-transparent opacity-50 hover:opacity-90"
+            }`}
+          >
+            <img
+              src={`data:${img.mime || "image/jpeg"};base64,${img.data}`}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function GalleryLightbox({ images, initialIndex, onClose }: GalleryLightboxProps) {
   const [index, setIndex] = useState(initialIndex)
   const [zoomed, setZoomed] = useState(false)
@@ -81,7 +128,7 @@ export default function GalleryLightbox({ images, initialIndex, onClose }: Galle
         </button>
 
         {/* Counter */}
-        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white/80">
+        <div className="pointer-events-none absolute bottom-16 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white/80">
           {index + 1} / {images.length}
         </div>
 
@@ -112,7 +159,7 @@ export default function GalleryLightbox({ images, initialIndex, onClose }: Galle
         {/* Zoom toggle */}
         <button
           onClick={() => setZoomed((z) => !z)}
-          className="absolute bottom-6 right-6 z-10 rounded-full bg-black/40 p-2 text-white/70 transition-all hover:bg-black/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+          className="absolute bottom-6 right-6 z-20 rounded-full bg-black/40 p-2 text-white/70 transition-all hover:bg-black/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
           aria-label={zoomed ? "Fit to screen" : "Zoom in"}
         >
           <Expand className="h-4 w-4" />
@@ -128,7 +175,7 @@ export default function GalleryLightbox({ images, initialIndex, onClose }: Galle
               className={`animate-in zoom-in-95 duration-200 ${
                 zoomed
                   ? "max-h-none max-w-none"
-                  : "max-h-[calc(100vh-8rem)] max-w-full"
+                  : "max-h-[calc(100vh-14rem)] max-w-full"
               } object-contain`}
               style={zoomed ? { maxHeight: "none", maxWidth: "none" } : undefined}
             />
@@ -136,6 +183,11 @@ export default function GalleryLightbox({ images, initialIndex, onClose }: Galle
             <div className="text-white/50">No image data</div>
           )}
         </div>
+
+        {/* Filmstrip at the bottom */}
+        {images.length > 1 && (
+          <GalleryFilmstrip images={images} currentIndex={index} onSelect={goTo} />
+        )}
       </div>
     </div>
   )
