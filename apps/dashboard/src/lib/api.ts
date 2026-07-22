@@ -25,6 +25,7 @@ async function requestRaw<T>(path: string, opts: RequestInit = {}): Promise<T> {
       ...(opts.headers as Record<string, string>),
     },
   })
+  if (res.status === 204) return undefined as T
   const body = await res.json()
   if (!res.ok) throw new Error(body?.error?.message ?? `HTTP ${res.status}`)
   return body as T
