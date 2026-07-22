@@ -135,15 +135,16 @@ groups needed for the test — mocked input suffices.
 - **FR-002**: The Classifier MUST support at minimum two outputs: "inmuebles"
   (real estate) and "rechazado" (rejected/non-real-estate). Future content
   types MUST be addable without modifying existing classifier code.
-- **FR-003**: Posts classified as "rechazado" with confidence >= 50% MUST be
-  stored as listings with status "rejected" and MUST NOT proceed to extraction.
-- **FR-004**: Posts classified as "inmuebles" with confidence >= 50% MUST
-  proceed to the Extractor stage.
-- **FR-005**: Posts with classification confidence between 20% and 50% MUST
-  proceed to extraction but the resulting listing MUST be created with status
-  "review".
-- **FR-006**: Posts with classification confidence below 20% MUST be stored as
-  "rejected" regardless of content.
+- **FR-003**: Posts classified as "rechazado" with confidence at or above the
+  group's `rejectThreshold` MUST be stored as listings with status "rejected"
+  and MUST NOT proceed to extraction.
+- **FR-004**: Posts classified as "inmuebles" with confidence at or above the
+  group's `classifyThreshold` MUST proceed to the Extractor stage.
+- **FR-005**: Posts with classification confidence between the group's
+  `rejectThreshold` and `classifyThreshold` MUST proceed to extraction but the
+  resulting listing MUST be created with status "review".
+- **FR-006**: Posts with classification confidence below the group's
+  `rejectThreshold` MUST be stored as "rejected" regardless of content.
 - **FR-007**: The system MUST support three listing statuses: "active" (approved,
   visible), "review" (pending manual approval), "rejected" (filtered out). The
   existing "sold" status MUST be preserved for manual use (user marks an active
@@ -154,8 +155,12 @@ groups needed for the test — mocked input suffices.
   listing in the review view.
 - **FR-010**: The dashboard MUST include a "Rejected" tab that shows rejected
   listings with an option to restore them to "review" or "active".
-- **FR-011**: The Groups model MUST include a "purpose" field that determines
-  which classifier and extractor to use for posts from that group.
+- **FR-011**: The Groups model MUST include a "purpose" field (e.g.,
+  "inmuebles", "vehiculos") that determines which classifier and extractor to
+  use for posts from that group. It MUST also include two configurable
+  confidence threshold fields: `rejectThreshold` (default 0.2) and
+  `classifyThreshold` (default 0.5). These thresholds control when a post is
+  rejected, sent to review, or allowed through to extraction.
 - **FR-012**: The Classifier and Extractor MUST communicate through a
   well-defined data contract (Zod schema) — no shared state or implicit
   dependencies between them.
@@ -168,6 +173,12 @@ groups needed for the test — mocked input suffices.
 - **FR-015**: Each extractor MUST be a self-contained module with its own system
   prompt, Zod output schema, and confidence logic. No extractor MAY depend on
   another extractor's internal code.
+- **FR-020**: The system MUST use a Registry pattern for extractors. Each
+  extractor registers itself with an `ExtractorRegistry` singleton under a
+  content type key (e.g., "inmuebles"). The pipeline queries the registry by
+  group purpose to select the correct extractor. Adding a new domain requires
+  only: creating the extractor module and registering it — no pipeline or
+  routing code changes.
 - **FR-016**: The AI processor's `processPost()` loop MUST route each post
   through: Cleaner → Classifier → (if classified as inmuebles) Extractor →
   Transformer → Storer. If classified as rejected, it MUST skip extraction and
@@ -208,8 +219,10 @@ groups needed for the test — mocked input suffices.
   incorrectly classified as "rechazado" in production testing with a sample of
   100 verified property posts.
 - **SC-003**: A new content domain (e.g., "vehiculos") can be added to the
-  system in under 2 hours of development time, requiring changes to no more
-  than 3 files (classifier module, extractor module, group configuration).
+  system in under 2 hours of development time, requiring only: a new extractor
+  module with its own classifier prompt and Zod schema, plus registering it
+  with the ExtractorRegistry. No pipeline, routing, or existing code changes
+  are needed.
 - **SC-004**: A listing classified with borderline confidence (30-50%) appears
   in the review queue within 5 minutes of its post being scraped.
 - **SC-005**: A user can review and approve/reject a listing from the review
@@ -237,3 +250,7 @@ groups needed for the test — mocked input suffices.
 - The feature is scoped to the "inmuebles" domain initially. The "vehiculos"
   domain is used only for testing the extensibility mechanism; its full
   implementation is out of scope.
+- Default threshold values are: `rejectThreshold = 0.2` (posts below 20%
+  confidence are always rejected) and `classifyThreshold = 0.5` (posts above
+  50% confidence proceed directly to extraction). Posts between these values
+  go to review. These defaults apply unless overridden per group.

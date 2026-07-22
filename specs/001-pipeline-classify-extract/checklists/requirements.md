@@ -35,3 +35,7 @@
 - Migration of existing "sold" listings handled in FR-017.
 - Classifier approach (cheap LLM) documented as assumption with model pair example.
 - Edge cases cover multi-category, image-only, classifier disagreement, and migration.
+- FR-003 to FR-006 updated: thresholds now configurable per group (rejectThreshold,
+  classifyThreshold) instead of hardcoded 20%/50%.
+- FR-020 added: explicit Registry pattern for extractor registration.
+- Default thresholds documented in Assumptions (reject=0.2, classify=0.5).
