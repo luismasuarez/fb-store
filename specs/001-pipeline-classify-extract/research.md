@@ -25,7 +25,7 @@ Classifier stage via OpenRouter. Keep `openai/gpt-4o` for the Extractor stage.
 ## Decision: Classifier Output Schema
 
 **Decision**: The Classifier will output a structured JSON (via LLM) containing:
-- `contentType`: "inmuebles" | "rechazado"
+- `contentType`: "inmuebles" | "rejected"
 - `confidence`: number (0.0-1.0)
 - `reasoning`: short string explaining the decision (for debugging)
 - `detectedEntities`: string[] (keywords found)
@@ -96,7 +96,7 @@ These map to:
 - confidence < 0.2 → rejected (regardless of content type)
 - confidence 0.2-0.5 → review (classified but needs human check)
 - confidence ≥ 0.5 and contentType="inmuebles" → proceed to extraction
-- confidence ≥ 0.5 and contentType="rechazado" → rejected
+- confidence ≥ 0.5 and contentType="rejected" → rejected
 
 **Rationale**: Airtight test with 100 property posts (SC-002) showed 0% false
 rejections at 0.5 threshold. The 0.2 floor prevents garbage from entering the

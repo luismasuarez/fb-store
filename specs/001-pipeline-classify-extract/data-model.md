@@ -65,7 +65,7 @@ The existing `Listing` model's `status` field gains two new valid values:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `contentType` | `"inmuebles" \| "rechazado"` | Classified content domain |
+| `contentType` | `"inmuebles" \| "rejected"` | Classified content domain |
 | `confidence` | `number` (0.0-1.0) | How sure the classifier is |
 | `reasoning` | `string` | Short explanation (debugging only) |
 | `detectedEntities` | `string[]` | Keywords found in text |

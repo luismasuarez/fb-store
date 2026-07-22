@@ -59,9 +59,10 @@ buttons, then accepting it and confirming it moves to "Active" listings.
 
 **Acceptance Scenarios**:
 
-1. **Given** a post with AI confidence between 30% and 50%, **When** the
-   processor finishes, **Then** a listing is created with status "review"
-   and appears in a dedicated review section of the dashboard.
+1. **Given** a post with AI confidence between the group's `rejectThreshold`
+   and `classifyThreshold` (default: 0.2-0.5), **When** the processor
+   finishes, **Then** a listing is created with status "review" and appears
+   in a dedicated review section of the dashboard.
 2. **Given** a listing in the review section, **When** the user clicks
    "Approve", **Then** the listing status changes to "active" and it appears
    in the main listings table.
@@ -133,9 +134,9 @@ groups needed for the test — mocked input suffices.
   Extractor stage. It receives raw post text and outputs a classification
   result (content type + confidence score).
 - **FR-002**: The Classifier MUST support at minimum two outputs: "inmuebles"
-  (real estate) and "rechazado" (rejected/non-real-estate). Future content
-  types MUST be addable without modifying existing classifier code.
-- **FR-003**: Posts classified as "rechazado" with confidence at or above the
+  (real estate) and "rejected" (non-real-estate). Future content types MUST
+  be addable without modifying existing classifier code.
+- **FR-003**: Posts classified as "rejected" with confidence at or above the
   group's `rejectThreshold` MUST be stored as listings with status "rejected"
   and MUST NOT proceed to extraction.
 - **FR-004**: Posts classified as "inmuebles" with confidence at or above the
@@ -162,11 +163,13 @@ groups needed for the test — mocked input suffices.
   `classifyThreshold` (default 0.5). These thresholds control when a post is
   rejected, sent to review, or allowed through to extraction.
 - **FR-012**: The Classifier and Extractor MUST communicate through a
-  well-defined data contract (Zod schema) — no shared state or implicit
-  dependencies between them.
-- **FR-013**: The Classifier MUST use a lightweight LLM model (e.g., Gemini
-  Flash, GPT-4o-mini) to minimize API costs. The model choice MUST be
-  configurable via the same AI config mechanism used for the extractor.
+  well-defined, validated data contract — no shared state or implicit
+  dependencies between them. The contract MUST be enforced at runtime.
+- **FR-013**: The Classifier MUST use a low-cost LLM model costing no more
+  than $0.20 per 1M input tokens (e.g., Gemini Flash, GPT-4o-mini) and
+  completing each classification in under 5 seconds. The classifier model
+  MUST be independently configurable from the extractor model via separate
+  fields (`classifierModel` + `extractorModel`) in the AI configuration.
 - **FR-014**: The Extractor for the "inmuebles" domain MUST extract all current
   fields (price, currency, location, bedrooms, bathrooms, area, floors, parking,
   furnished, features, contact, etc.) with Zod validation on the output.
@@ -197,7 +200,7 @@ groups needed for the test — mocked input suffices.
 ### Key Entities
 
 - **ClassificationResult**: The output of the Classifier stage. Contains:
-  content type (e.g., "inmuebles", "rechazado"), confidence score (0.0-1.0),
+  content type (e.g., "inmuebles", "rejected"), confidence score (0.0-1.0),
   reasoning snippet (for debugging), and raw entities detected.
 - **ContentExtractor**: Interface/abstract class that defines the contract for
   domain-specific extractors. Methods: `classify(text): ClassificationResult`,
@@ -213,10 +216,10 @@ groups needed for the test — mocked input suffices.
 ### Measurable Outcomes
 
 - **SC-001**: 90% of non-real-estate posts (e.g., water tanks, electronics, car
-  parts) are correctly classified as "rechazado" and never appear in the main
+  parts) are correctly classified as "rejected" and never appear in the main
   listings view.
 - **SC-002**: 0% of valid real estate posts (houses, apartments, land) are
-  incorrectly classified as "rechazado" in production testing with a sample of
+  incorrectly classified as "rejected" in production testing with a sample of
   100 verified property posts.
 - **SC-003**: A new content domain (e.g., "vehiculos") can be added to the
   system in under 2 hours of development time, requiring only: a new extractor
@@ -231,11 +234,18 @@ groups needed for the test — mocked input suffices.
   processing cost per post (the Extractor consumes the remaining 70%+), when
   using a cheap model for classification versus a capable model for extraction.
 
+## Clarifications
+
+### Session 2026-07-21
+
+- Q: Should the classifier and extractor use the same AI model or separately configurable models? → A: Two separately configurable models (`classifierModel` + `extractorModel` in ai-config.json). The classifier defaults to a cheap model (Gemini Flash) and the extractor defaults to a capable model (GPT-4o).
+
 ## Assumptions
 
-- The Classifier will use a cheaper/faster LLM model than the Extractor. The
-  default pairing is Gemini Flash (classifier) + GPT-4o or Claude Sonnet
-  (extractor), both available via OpenRouter.
+- The Classifier and Extractor use separately configured models. The default
+  pairing is Gemini Flash (classifier) + GPT-4o (extractor), both available
+  via OpenRouter. Each is independently configurable via `classifierModel`
+  and `extractorModel` fields in the AI configuration.
 - Classification is purely text-based (post text content). Images are not
   analyzed for classification purposes in this feature.
 - Posts shorter than 20 characters are discarded before classification (existing

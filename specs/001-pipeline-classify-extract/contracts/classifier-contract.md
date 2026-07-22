@@ -9,7 +9,7 @@ text: string  // 20-10000 chars, already sanitized of Facebook UI noise
 ## Output
 ```typescript
 ClassificationResult {
-  contentType: "inmuebles" | "rechazado"
+  contentType: "inmuebles" | "rejected"
   confidence: number        // 0.0 to 1.0
   reasoning: string         // max 200 chars, human-readable
   detectedEntities: string[] // keywords found, max 10 items

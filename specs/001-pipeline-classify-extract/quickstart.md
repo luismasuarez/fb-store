@@ -31,7 +31,7 @@ curl -X POST http://localhost:3000/api/v1/ai/test \
   -d '{"text": "Vendo tanque de agua de 500 litros, nuevo, $5000 CUP, recogida en Centro Habana"}'
 ```
 
-**Expected**: Classifier returns `contentType: "rechazado"`, confidence > 0.5.
+**Expected**: Classifier returns `contentType: "rejected"`, confidence > 0.5.
 No extractor called. Post stored as listing with status "rejected".
 
 ### Scenario 2: Classifier passes real estate to extractor
