@@ -18,3 +18,6 @@ auto_commit:
   after_analyze:
     enabled: true
     message: "[Spec Kit] Analyze specification"
+  after_implement:
+    enabled: true
+    message: "[Feature] Implement pipeline classify-extract"

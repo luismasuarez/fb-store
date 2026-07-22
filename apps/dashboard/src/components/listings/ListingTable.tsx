@@ -32,6 +32,12 @@ interface Pagination {
   totalPages: number
 }
 
+const STATUS_TABS = [
+  { value: "active", label: "Active" },
+  { value: "review", label: "Review" },
+  { value: "rejected", label: "Rejected" },
+] as const
+
 export default function ListingTable() {
   const [listings, setListings] = useState<Listing[] | null>(null)
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -40,6 +46,7 @@ export default function ListingTable() {
   const [listingType, setListingType] = useState("")
   const [propertyType, setPropertyType] = useState("")
   const [sort, setSort] = useState("newest")
+  const [statusTab, setStatusTab] = useState("active")
 
   function buildUrl(): string {
     const params = new URLSearchParams()
@@ -48,6 +55,11 @@ export default function ListingTable() {
     if (search) params.set("search", search)
     if (listingType) params.set("listing_type", listingType)
     if (propertyType) params.set("property_type", propertyType)
+    if (statusTab === "rejected") {
+      params.set("status", "rejected")
+    } else if (statusTab === "review") {
+      params.set("status", "review")
+    }
     if (sort === "price_asc") params.set("sort", "price_asc")
     else if (sort === "price_desc") params.set("sort", "price_desc")
     return `/api/v1/listings?${params}`
@@ -64,7 +76,7 @@ export default function ListingTable() {
     }
   }
 
-  useEffect(() => { load() }, [page, listingType, propertyType, sort])
+  useEffect(() => { load() }, [page, listingType, propertyType, sort, statusTab])
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -100,6 +112,22 @@ export default function ListingTable() {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-3 flex gap-1 border-b pb-2">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => { setStatusTab(tab.value); setPage(1) }}
+              className={`px-3 py-1 text-xs font-medium rounded-t transition-colors ${
+                statusTab === tab.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <form onSubmit={handleSearch} className="relative flex-1 basis-48">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -182,7 +210,11 @@ export default function ListingTable() {
                       className={`text-[10px] capitalize ${
                         l.status === "active"
                           ? "border-emerald-500/30 text-emerald-500"
-                          : "text-muted-foreground"
+                          : l.status === "review"
+                            ? "border-amber-500/30 text-amber-500"
+                            : l.status === "rejected"
+                              ? "border-red-500/30 text-red-500"
+                              : "text-muted-foreground"
                       }`}
                     >
                       {l.status}

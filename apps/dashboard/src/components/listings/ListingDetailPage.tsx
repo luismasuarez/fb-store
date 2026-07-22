@@ -5,7 +5,8 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
-import { ArrowLeft, Building2, Camera, ExternalLink, MapPin, Phone, User } from "@/lib/icon"
+import { ArrowLeft, Building2, Camera, ExternalLink, MapPin, Phone, User, Check, X, RefreshCw } from "@/lib/icon"
+import { toast } from "sonner"
 import GalleryLightbox from "./GalleryLightbox"
 
 interface ListingDetail {
@@ -109,7 +110,11 @@ export default function ListingDetailPage({ id }: { id: string }) {
                 className={`text-[10px] capitalize ${
                   l.status === "active"
                     ? "border-emerald-500/30 text-emerald-500"
-                    : "text-muted-foreground"
+                    : l.status === "review"
+                      ? "border-amber-500/30 text-amber-500"
+                      : l.status === "rejected"
+                        ? "border-red-500/30 text-red-500"
+                        : "text-muted-foreground"
                 }`}
               >
                 {l.status}
@@ -121,6 +126,47 @@ export default function ListingDetailPage({ id }: { id: string }) {
               )}
             </div>
           </div>
+
+          {(l.status === "review" || l.status === "rejected") && (
+            <div className="flex gap-2 pt-1">
+              {l.status === "review" && (
+                <>
+                  <Button size="sm" variant="default" onClick={async () => {
+                    try {
+                      await api.listings.approve(l.id)
+                      toast.success("Listing approved")
+                      setData({ ...l, status: "active" })
+                    } catch { toast.error("Failed to approve listing") }
+                  }}>
+                    <Check className="mr-1 h-3.5 w-3.5" />
+                    Approve
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={async () => {
+                    try {
+                      await api.listings.reject(l.id)
+                      toast.success("Listing rejected")
+                      setData({ ...l, status: "rejected" })
+                    } catch { toast.error("Failed to reject listing") }
+                  }}>
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Reject
+                  </Button>
+                </>
+              )}
+              {l.status === "rejected" && (
+                <Button size="sm" variant="outline" onClick={async () => {
+                  try {
+                    await api.listings.restore(l.id)
+                    toast.success("Listing restored to review")
+                    setData({ ...l, status: "review" })
+                  } catch { toast.error("Failed to restore listing") }
+                }}>
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                  Restore to Review
+                </Button>
+              )}
+            </div>
+          )}
 
           <Separator />
 

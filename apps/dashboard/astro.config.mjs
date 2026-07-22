@@ -21,6 +21,12 @@ export default defineConfig({
       proxy: {
         "/api": "http://localhost:3001",
       },
+      fs: {
+        allow: [
+          "..",
+          path.resolve(__dirname, "../../node_modules/.pnpm"),
+        ],
+      },
     },
   },
   integrations: [react()],

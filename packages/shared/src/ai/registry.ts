@@ -1,4 +1,22 @@
-import type { StructuredPropertyListing } from "./types"
+import type { StructuredPropertyListing, ClassificationResult, ContentExtractor } from "./types"
+
+export type { ContentExtractor }
+
+export class ExtractorRegistry {
+  private static registry = new Map<string, ContentExtractor>()
+
+  static register(extractor: ContentExtractor): void {
+    this.registry.set(extractor.contentType, extractor)
+  }
+
+  static get(contentType: string): ContentExtractor | undefined {
+    return this.registry.get(contentType)
+  }
+
+  static getAll(): string[] {
+    return Array.from(this.registry.keys())
+  }
+}
 
 export function getSystemPrompt(): string {
   return `Eres un extractor profesional de publicaciones inmobiliarias provenientes de Facebook Marketplace y grupos de compra/venta en Cuba.

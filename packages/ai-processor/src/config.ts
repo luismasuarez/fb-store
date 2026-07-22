@@ -5,6 +5,7 @@ export interface AiConfig {
   provider: string
   apiKey: string
   model: string
+  classifierModel: string
   batchSize: number
 }
 
@@ -21,6 +22,7 @@ function loadFromFile(): AiConfig {
         provider: json.provider || "openrouter",
         apiKey: json.apiKey || process.env.OPENROUTER_API_KEY || "",
         model: json.model || process.env.AI_MODEL || "openai/gpt-4o-mini",
+        classifierModel: json.classifierModel || process.env.AI_CLASSIFIER_MODEL || "openai/gpt-4o-mini",
         batchSize: Number(json.batchSize) || Number(process.env.AI_BATCH_SIZE) || 10,
       }
     } catch (err) {
@@ -36,6 +38,7 @@ function loadFromFile(): AiConfig {
     provider: process.env.AI_PROVIDER || "openrouter",
     apiKey: process.env.OPENROUTER_API_KEY || process.env.AI_API_KEY || "",
     model: process.env.AI_MODEL || "openai/gpt-4o-mini",
+    classifierModel: process.env.AI_CLASSIFIER_MODEL || "openai/gpt-4o-mini",
     batchSize: Number(process.env.AI_BATCH_SIZE) || 10,
   }
 }

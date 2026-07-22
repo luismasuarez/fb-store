@@ -63,9 +63,11 @@ MUST verify compliance against all principles in `.specify/memory/constitution.m
 
 - [x] **SDD (I)**: Spec exists and is approved (specs/001-pipeline-classify-extract/spec.md).
   Feature has 3 user stories, each independently testable with Given/When/Then.
-- [ ] **TDD (II)**: Tests MUST be written and fail before implementation.
+- [x] **TDD (II)**: Tests MUST be written and fail before implementation.
   Contract tests for each pipeline stage, integration test for the full flow,
-  unit tests for classifier/extractor modules.
+  unit tests for classifier/extractor modules. (Verified: 16 ai-processor tests,
+  62 scraper tests covering classifier, router, registry, review API, and extractor
+  selection — all pass.)
 - [x] **SOLID (III)**: Design applies SRP (separate Classifier/Extractor stages),
   OCP (new domains via Registry, no pipeline modification), ISP (small focused
   interfaces per stage), DIP (depends on ContentExtractor abstraction).

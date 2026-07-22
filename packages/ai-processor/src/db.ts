@@ -84,6 +84,57 @@ export async function updateListingImages(id: string, images: any[]): Promise<vo
   })
 }
 
+export async function approveListing(id: string): Promise<void> {
+  const db = getClient()
+  await db.listing.update({
+    where: { id },
+    data: { status: "active" },
+  })
+}
+
+export async function rejectListing(id: string): Promise<void> {
+  const db = getClient()
+  await db.listing.update({
+    where: { id },
+    data: { status: "rejected" },
+  })
+}
+
+export async function restoreListing(id: string): Promise<void> {
+  const db = getClient()
+  await db.listing.update({
+    where: { id },
+    data: { status: "review" },
+  })
+}
+
+export async function getReviewQueue(): Promise<any[]> {
+  const db = getClient()
+  return db.listing.findMany({
+    where: { status: "review" },
+    orderBy: { scrapedAt: "asc" },
+  })
+}
+
+export async function getGroupConfig(groupId: string | null | undefined): Promise<{
+  purpose: string | null
+  rejectThreshold: number
+  classifyThreshold: number
+} | null> {
+  if (!groupId) return null
+  const db = getClient()
+  const group = await db.group.findUnique({
+    where: { id: groupId },
+    select: { purpose: true, rejectThreshold: true, classifyThreshold: true },
+  })
+  if (!group) return null
+  return {
+    purpose: group.purpose ?? null,
+    rejectThreshold: group.rejectThreshold,
+    classifyThreshold: group.classifyThreshold,
+  }
+}
+
 export async function getAiConfigRow(): Promise<any> {
   return getAiConfig()
 }

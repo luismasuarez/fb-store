@@ -121,3 +121,74 @@ WHERE status = 'sold'
 **Rationale**: Preserves genuinely sold listings (user-marked) while cleaning
 up old AI-generated "sold" entries. The date gate prevents touching any future
 user actions.
+
+---
+
+<!--
+  The following sections document decisions made DURING implementation
+  that are OUTSIDE the scope of this feature (001-pipeline-classify-extract).
+  They are recorded here because they affect the codebase broadly.
+-->
+
+## Decision: Prisma Model Table Naming (Outside Feature Scope)
+
+**Decision**: Always use `@@map("table_name")` on Prisma models to explicitly
+control the database table name.
+
+**Context**: The `Group` model was originally defined without `@@map("groups")`.
+In Prisma 7, the default table name is the model name (`Group`), but the initial
+migration created the table as `"groups"`. When a subsequent migration was generated
+after adding fields, Prisma detected the mismatch and generated a `DROP TABLE "groups"`
+/ `CREATE TABLE "Group"` — permanently dropping all existing group data.
+
+**Lesson**: Prisma migrations treat model/table name mismatches as destructive
+operations. Enabling `@@map` explicitly prevents this.
+
+**Rationale**: A lesson learned the hard way after losing prod data. All new models
+and any model without `@@map` should get one. Existing models: `Listing` has
+`@@map("listings")`, `RawPost` uses defaults, etc.
+
+---
+
+## Decision: Centralized Error Handling Pattern (Outside Feature Scope)
+
+**Decision**: Standardize error handling with:
+- `AppError` class — carries `code`, `message`, `status`
+- `toAppError()` utility — maps any error (Prisma, network, etc.) to AppError
+- Hono `onError` global handler — catches all AppErrors and formats consistent
+  `{ error: { code, message, requestId } }` responses
+
+**Components**:
+- `packages/scraper/src/lib/app-error.ts` — AppError class + ErrorCode type
+- `packages/scraper/src/lib/prisma-errors.ts` — maps Prisma codes (P2002, P2025)
+  and message patterns (Argument missing, net::, login expired, etc.) to AppError
+- `packages/scraper/src/middleware/error-handler.ts` — enhanced from pre-existing
+  `onError` handler to also handle Prisma errors natively
+
+**Pattern**:
+- Routes throw errors directly (no manual try/catch for most cases)
+- For Prisma operations: catch + `throw toAppError(err)`
+- `onError` catches everything and returns consistent envelope
+- Frontend `api.ts` `requestRaw()` extracts `body.error.message` for toasts
+
+**Rationale**: Before this, each route had its own error format — some returned
+raw Prisma traces in `err.message`, others had custom `classifyError()` functions.
+A single pattern eliminates Prisma trace leaks to the frontend and ensures
+consistent error codes across all endpoints.
+
+**Error codes**: `validation_error`, `not_found`, `conflict`, `unauthorized`,
+`session_expired`, `network_error`, `external_error`, `internal_error`
+
+---
+
+## Decision: Vite `server.fs.allow` for pnpm Monorepo (Outside Feature Scope)
+
+**Decision**: Add `vite.server.fs.allow: ["..", "../../node_modules/.pnpm"]` to
+Astro config in `apps/dashboard/astro.config.mjs`.
+
+**Context**: pnpm's `node_modules/.pnpm/` directory uses symlinks. Vite restricts
+serving files outside the project root by default. Without this config, requests
+to `.pnpm`-hosted packages (`@fontsource-variable/outfit`, `@astrojs/react`) get
+blocked with "outside of Vite serving allow list" errors.
+
+**Rationale**: Standard fix for pnpm + Vite/Astro projects in monorepos.
