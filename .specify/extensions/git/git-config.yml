@@ -3,3 +3,6 @@ auto_commit:
   after_constitution:
     enabled: true
     message: "[Spec Kit] Amend constitution"
+  after_specify:
+    enabled: true
+    message: "[Spec Kit] Add specification"
