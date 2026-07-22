@@ -57,7 +57,7 @@ export default function GroupTable() {
         await api.groups.update(id, { name: name || id, maxPosts })
         toast.success("Group updated")
       } else {
-        await api.groups.create({ id, name: name || id, maxPosts })
+        await api.groups.create({ id, name: name || id, url, maxPosts })
         toast.success("Group created")
       }
       setDialogOpen(false)

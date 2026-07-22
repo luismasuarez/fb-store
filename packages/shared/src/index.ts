@@ -1,3 +1,6 @@
-export { Extractor, type PropertyListing } from "./ai/extractor"
+export { Extractor } from "./ai/extractor"
 export { getProvider, type AIProvider } from "./ai/provider"
 export { fetchAvailableModels, type OpenRouterModel } from "./ai/models"
+export { ExtractorRegistry, type ContentExtractor } from "./ai/registry"
+export { extractWithOpenRouter, type OpenRouterConfig } from "./ai/openrouter"
+export type { StructuredPropertyListing, ClassificationResult } from "./ai/types"

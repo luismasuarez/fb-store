@@ -41,9 +41,9 @@ export const api = {
   groups: {
     list: () => request<Group[]>('/groups'),
     get: (id: string) => request<Group>(`/groups/${encodeURIComponent(id)}`),
-    create: (data: { id: string; name?: string; maxPosts?: number }) =>
+    create: (data: { id: string; name?: string; url: string; maxPosts?: number; purpose?: string; rejectThreshold?: number; classifyThreshold?: number }) =>
       request<Group>('/groups', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; maxPosts?: number; isActive?: boolean }) =>
+    update: (id: string, data: { name?: string; maxPosts?: number; isActive?: boolean; purpose?: string; rejectThreshold?: number; classifyThreshold?: number }) =>
       request<Group>(`/groups/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
     remove: (id: string) => request<void>(`/groups/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
@@ -94,6 +94,14 @@ export const api = {
       }>(`/listings?${params}`),
     get: (id: string) =>
       requestRaw<{ data: any }>(`/listings/${encodeURIComponent(id)}`),
+    review: () =>
+      requestRaw<{ data: any[]; total: number; pendingReview: number }>("/listings/review"),
+    approve: (id: string) =>
+      requestRaw<{ data: any }>(`/listings/${encodeURIComponent(id)}/approve`, { method: "POST" }),
+    reject: (id: string) =>
+      requestRaw<{ data: any }>(`/listings/${encodeURIComponent(id)}/reject`, { method: "POST" }),
+    restore: (id: string) =>
+      requestRaw<{ data: any }>(`/listings/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   },
 }
 

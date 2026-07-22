@@ -28,10 +28,14 @@ export type AggregateGroup = {
 
 export type GroupAvgAggregateOutputType = {
   maxPosts: number | null
+  rejectThreshold: number | null
+  classifyThreshold: number | null
 }
 
 export type GroupSumAggregateOutputType = {
   maxPosts: number | null
+  rejectThreshold: number | null
+  classifyThreshold: number | null
 }
 
 export type GroupMinAggregateOutputType = {
@@ -39,6 +43,9 @@ export type GroupMinAggregateOutputType = {
   name: string | null
   url: string | null
   maxPosts: number | null
+  purpose: string | null
+  rejectThreshold: number | null
+  classifyThreshold: number | null
   lastScraped: Date | null
   lastError: string | null
   isActive: boolean | null
@@ -50,6 +57,9 @@ export type GroupMaxAggregateOutputType = {
   name: string | null
   url: string | null
   maxPosts: number | null
+  purpose: string | null
+  rejectThreshold: number | null
+  classifyThreshold: number | null
   lastScraped: Date | null
   lastError: string | null
   isActive: boolean | null
@@ -61,6 +71,9 @@ export type GroupCountAggregateOutputType = {
   name: number
   url: number
   maxPosts: number
+  purpose: number
+  rejectThreshold: number
+  classifyThreshold: number
   lastScraped: number
   lastError: number
   isActive: number
@@ -71,10 +84,14 @@ export type GroupCountAggregateOutputType = {
 
 export type GroupAvgAggregateInputType = {
   maxPosts?: true
+  rejectThreshold?: true
+  classifyThreshold?: true
 }
 
 export type GroupSumAggregateInputType = {
   maxPosts?: true
+  rejectThreshold?: true
+  classifyThreshold?: true
 }
 
 export type GroupMinAggregateInputType = {
@@ -82,6 +99,9 @@ export type GroupMinAggregateInputType = {
   name?: true
   url?: true
   maxPosts?: true
+  purpose?: true
+  rejectThreshold?: true
+  classifyThreshold?: true
   lastScraped?: true
   lastError?: true
   isActive?: true
@@ -93,6 +113,9 @@ export type GroupMaxAggregateInputType = {
   name?: true
   url?: true
   maxPosts?: true
+  purpose?: true
+  rejectThreshold?: true
+  classifyThreshold?: true
   lastScraped?: true
   lastError?: true
   isActive?: true
@@ -104,6 +127,9 @@ export type GroupCountAggregateInputType = {
   name?: true
   url?: true
   maxPosts?: true
+  purpose?: true
+  rejectThreshold?: true
+  classifyThreshold?: true
   lastScraped?: true
   lastError?: true
   isActive?: true
@@ -200,8 +226,11 @@ export type GroupGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
 export type GroupGroupByOutputType = {
   id: string
   name: string
-  url: string | null
+  url: string
   maxPosts: number
+  purpose: string | null
+  rejectThreshold: number
+  classifyThreshold: number
   lastScraped: Date | null
   lastError: string | null
   isActive: boolean
@@ -234,8 +263,11 @@ export type GroupWhereInput = {
   NOT?: Prisma.GroupWhereInput | Prisma.GroupWhereInput[]
   id?: Prisma.StringFilter<"Group"> | string
   name?: Prisma.StringFilter<"Group"> | string
-  url?: Prisma.StringNullableFilter<"Group"> | string | null
+  url?: Prisma.StringFilter<"Group"> | string
   maxPosts?: Prisma.IntFilter<"Group"> | number
+  purpose?: Prisma.StringNullableFilter<"Group"> | string | null
+  rejectThreshold?: Prisma.FloatFilter<"Group"> | number
+  classifyThreshold?: Prisma.FloatFilter<"Group"> | number
   lastScraped?: Prisma.DateTimeNullableFilter<"Group"> | Date | string | null
   lastError?: Prisma.StringNullableFilter<"Group"> | string | null
   isActive?: Prisma.BoolFilter<"Group"> | boolean
@@ -245,8 +277,11 @@ export type GroupWhereInput = {
 export type GroupOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  url?: Prisma.SortOrderInput | Prisma.SortOrder
+  url?: Prisma.SortOrder
   maxPosts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
   lastScraped?: Prisma.SortOrderInput | Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
@@ -259,8 +294,11 @@ export type GroupWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.GroupWhereInput[]
   NOT?: Prisma.GroupWhereInput | Prisma.GroupWhereInput[]
   name?: Prisma.StringFilter<"Group"> | string
-  url?: Prisma.StringNullableFilter<"Group"> | string | null
+  url?: Prisma.StringFilter<"Group"> | string
   maxPosts?: Prisma.IntFilter<"Group"> | number
+  purpose?: Prisma.StringNullableFilter<"Group"> | string | null
+  rejectThreshold?: Prisma.FloatFilter<"Group"> | number
+  classifyThreshold?: Prisma.FloatFilter<"Group"> | number
   lastScraped?: Prisma.DateTimeNullableFilter<"Group"> | Date | string | null
   lastError?: Prisma.StringNullableFilter<"Group"> | string | null
   isActive?: Prisma.BoolFilter<"Group"> | boolean
@@ -270,8 +308,11 @@ export type GroupWhereUniqueInput = Prisma.AtLeast<{
 export type GroupOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
-  url?: Prisma.SortOrderInput | Prisma.SortOrder
+  url?: Prisma.SortOrder
   maxPosts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
   lastScraped?: Prisma.SortOrderInput | Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
@@ -289,8 +330,11 @@ export type GroupScalarWhereWithAggregatesInput = {
   NOT?: Prisma.GroupScalarWhereWithAggregatesInput | Prisma.GroupScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Group"> | string
   name?: Prisma.StringWithAggregatesFilter<"Group"> | string
-  url?: Prisma.StringNullableWithAggregatesFilter<"Group"> | string | null
+  url?: Prisma.StringWithAggregatesFilter<"Group"> | string
   maxPosts?: Prisma.IntWithAggregatesFilter<"Group"> | number
+  purpose?: Prisma.StringNullableWithAggregatesFilter<"Group"> | string | null
+  rejectThreshold?: Prisma.FloatWithAggregatesFilter<"Group"> | number
+  classifyThreshold?: Prisma.FloatWithAggregatesFilter<"Group"> | number
   lastScraped?: Prisma.DateTimeNullableWithAggregatesFilter<"Group"> | Date | string | null
   lastError?: Prisma.StringNullableWithAggregatesFilter<"Group"> | string | null
   isActive?: Prisma.BoolWithAggregatesFilter<"Group"> | boolean
@@ -300,8 +344,11 @@ export type GroupScalarWhereWithAggregatesInput = {
 export type GroupCreateInput = {
   id: string
   name: string
-  url?: string | null
+  url: string
   maxPosts?: number
+  purpose?: string | null
+  rejectThreshold?: number
+  classifyThreshold?: number
   lastScraped?: Date | string | null
   lastError?: string | null
   isActive?: boolean
@@ -311,8 +358,11 @@ export type GroupCreateInput = {
 export type GroupUncheckedCreateInput = {
   id: string
   name: string
-  url?: string | null
+  url: string
   maxPosts?: number
+  purpose?: string | null
+  rejectThreshold?: number
+  classifyThreshold?: number
   lastScraped?: Date | string | null
   lastError?: string | null
   isActive?: boolean
@@ -322,8 +372,11 @@ export type GroupUncheckedCreateInput = {
 export type GroupUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.StringFieldUpdateOperationsInput | string
   maxPosts?: Prisma.IntFieldUpdateOperationsInput | number
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  classifyThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
   lastScraped?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -333,8 +386,11 @@ export type GroupUpdateInput = {
 export type GroupUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.StringFieldUpdateOperationsInput | string
   maxPosts?: Prisma.IntFieldUpdateOperationsInput | number
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  classifyThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
   lastScraped?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -344,8 +400,11 @@ export type GroupUncheckedUpdateInput = {
 export type GroupCreateManyInput = {
   id: string
   name: string
-  url?: string | null
+  url: string
   maxPosts?: number
+  purpose?: string | null
+  rejectThreshold?: number
+  classifyThreshold?: number
   lastScraped?: Date | string | null
   lastError?: string | null
   isActive?: boolean
@@ -355,8 +414,11 @@ export type GroupCreateManyInput = {
 export type GroupUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.StringFieldUpdateOperationsInput | string
   maxPosts?: Prisma.IntFieldUpdateOperationsInput | number
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  classifyThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
   lastScraped?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -366,8 +428,11 @@ export type GroupUpdateManyMutationInput = {
 export type GroupUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
-  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  url?: Prisma.StringFieldUpdateOperationsInput | string
   maxPosts?: Prisma.IntFieldUpdateOperationsInput | number
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
+  classifyThreshold?: Prisma.FloatFieldUpdateOperationsInput | number
   lastScraped?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -379,6 +444,9 @@ export type GroupCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   url?: Prisma.SortOrder
   maxPosts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
   lastScraped?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
@@ -387,6 +455,8 @@ export type GroupCountOrderByAggregateInput = {
 
 export type GroupAvgOrderByAggregateInput = {
   maxPosts?: Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
 }
 
 export type GroupMaxOrderByAggregateInput = {
@@ -394,6 +464,9 @@ export type GroupMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   url?: Prisma.SortOrder
   maxPosts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
   lastScraped?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
@@ -405,6 +478,9 @@ export type GroupMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   url?: Prisma.SortOrder
   maxPosts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
   lastScraped?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
@@ -413,9 +489,19 @@ export type GroupMinOrderByAggregateInput = {
 
 export type GroupSumOrderByAggregateInput = {
   maxPosts?: Prisma.SortOrder
+  rejectThreshold?: Prisma.SortOrder
+  classifyThreshold?: Prisma.SortOrder
 }
 
 export type IntFieldUpdateOperationsInput = {
+  set?: number
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
+export type FloatFieldUpdateOperationsInput = {
   set?: number
   increment?: number
   decrement?: number
@@ -434,6 +520,9 @@ export type GroupSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   name?: boolean
   url?: boolean
   maxPosts?: boolean
+  purpose?: boolean
+  rejectThreshold?: boolean
+  classifyThreshold?: boolean
   lastScraped?: boolean
   lastError?: boolean
   isActive?: boolean
@@ -445,6 +534,9 @@ export type GroupSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   name?: boolean
   url?: boolean
   maxPosts?: boolean
+  purpose?: boolean
+  rejectThreshold?: boolean
+  classifyThreshold?: boolean
   lastScraped?: boolean
   lastError?: boolean
   isActive?: boolean
@@ -456,6 +548,9 @@ export type GroupSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   name?: boolean
   url?: boolean
   maxPosts?: boolean
+  purpose?: boolean
+  rejectThreshold?: boolean
+  classifyThreshold?: boolean
   lastScraped?: boolean
   lastError?: boolean
   isActive?: boolean
@@ -467,13 +562,16 @@ export type GroupSelectScalar = {
   name?: boolean
   url?: boolean
   maxPosts?: boolean
+  purpose?: boolean
+  rejectThreshold?: boolean
+  classifyThreshold?: boolean
   lastScraped?: boolean
   lastError?: boolean
   isActive?: boolean
   createdAt?: boolean
 }
 
-export type GroupOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "url" | "maxPosts" | "lastScraped" | "lastError" | "isActive" | "createdAt", ExtArgs["result"]["group"]>
+export type GroupOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "url" | "maxPosts" | "purpose" | "rejectThreshold" | "classifyThreshold" | "lastScraped" | "lastError" | "isActive" | "createdAt", ExtArgs["result"]["group"]>
 
 export type $GroupPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Group"
@@ -481,8 +579,11 @@ export type $GroupPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     name: string
-    url: string | null
+    url: string
     maxPosts: number
+    purpose: string | null
+    rejectThreshold: number
+    classifyThreshold: number
     lastScraped: Date | null
     lastError: string | null
     isActive: boolean
@@ -914,6 +1015,9 @@ export interface GroupFieldRefs {
   readonly name: Prisma.FieldRef<"Group", 'String'>
   readonly url: Prisma.FieldRef<"Group", 'String'>
   readonly maxPosts: Prisma.FieldRef<"Group", 'Int'>
+  readonly purpose: Prisma.FieldRef<"Group", 'String'>
+  readonly rejectThreshold: Prisma.FieldRef<"Group", 'Float'>
+  readonly classifyThreshold: Prisma.FieldRef<"Group", 'Float'>
   readonly lastScraped: Prisma.FieldRef<"Group", 'DateTime'>
   readonly lastError: Prisma.FieldRef<"Group", 'String'>
   readonly isActive: Prisma.FieldRef<"Group", 'Boolean'>

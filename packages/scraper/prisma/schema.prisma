@@ -59,14 +59,17 @@ model Listing {
 }
 
 model Group {
-  id          String      @id
-  name        String
-  url         String?
-  maxPosts    Int         @default(30) @map("max_posts")
-  lastScraped DateTime?   @map("last_scraped")
-  lastError   String?     @map("last_error")
-  isActive    Boolean     @default(true) @map("is_active")
-  createdAt   DateTime    @default(now()) @map("created_at")
+  id               String   @id
+  name             String
+  url              String
+  maxPosts         Int      @default(30)
+  purpose          String?  @map("purpose")
+  rejectThreshold  Float    @default(0.2) @map("reject_threshold")
+  classifyThreshold Float   @default(0.5) @map("classify_threshold")
+  lastScraped      DateTime?
+  lastError        String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
   @@map("groups")
 }

@@ -1,0 +1,23 @@
+auto_commit:
+  default: false
+  after_constitution:
+    enabled: true
+    message: "[Spec Kit] Amend constitution"
+  after_specify:
+    enabled: true
+    message: "[Spec Kit] Add specification"
+  after_tasks:
+    enabled: true
+    message: "[Spec Kit] Add task list"
+  after_clarify:
+    enabled: true
+    message: "[Spec Kit] Clarify specification"
+  after_plan:
+    enabled: true
+    message: "[Spec Kit] Add implementation plan"
+  after_analyze:
+    enabled: true
+    message: "[Spec Kit] Analyze specification"
+  after_implement:
+    enabled: true
+    message: "[Feature] Implement pipeline classify-extract"

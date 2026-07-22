@@ -95,8 +95,11 @@ export async function scrapeGroup(
         const feedUrl = page.url();
 
         // Navigate directly to the photo URL to open the viewer
-        console.log(`📸 Post ${i}: navegando a ${post.postUrl.substring(0, 80)}...`);
-        await page.goto(post.postUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+        const absoluteUrl = post.postUrl.startsWith("http")
+          ? post.postUrl
+          : `https://www.facebook.com${post.postUrl}`;
+        console.log(`📸 Post ${i}: navegando a ${absoluteUrl.substring(0, 80)}...`);
+        await page.goto(absoluteUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
         await page.waitForTimeout(3000);
 
         // Debug: log current URL and page structure

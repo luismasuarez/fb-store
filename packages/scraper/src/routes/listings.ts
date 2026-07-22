@@ -1,6 +1,8 @@
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { getPrismaClient } from "../db"
+import { AppError } from "../lib/app-error"
+import { toAppError } from "../lib/prisma-errors"
 
 const listingsRoute = new Hono()
 
@@ -12,7 +14,7 @@ listingsRoute.get("/listings", async (c: Context<{ Variables: { requestId: strin
     listing_type, property_type,
     province, municipality,
     min_price, max_price,
-    currency, status, search, sort,
+    currency, status, status_ne, search, sort,
   } = c.req.query()
 
   const pageNum = Math.max(1, Number(page) || 1)
@@ -26,7 +28,19 @@ listingsRoute.get("/listings", async (c: Context<{ Variables: { requestId: strin
   if (province) where.province = province
   if (municipality) where.municipality = municipality
   if (currency) where.currency = currency
-  if (status) where.status = status
+  if (status) {
+    const statuses = status.split(",").map((s: string) => s.trim()).filter(Boolean)
+    if (statuses.length === 1) {
+      where.status = statuses[0]
+    } else if (statuses.length > 1) {
+      where.status = { in: statuses }
+    }
+  } else {
+    where.status = "active"
+  }
+  if (status_ne) {
+    where.NOT = { status: status_ne }
+  }
   if (min_price || max_price) {
     where.price = {}
     if (min_price) where.price.gte = Number(min_price)
@@ -61,15 +75,65 @@ listingsRoute.get("/listings", async (c: Context<{ Variables: { requestId: strin
   })
 })
 
+listingsRoute.get("/listings/review", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const db = getPrismaClient()
+  const listings = await db.listing.findMany({
+    where: { status: "review" },
+    orderBy: { scrapedAt: "asc" },
+  })
+  return c.json({
+    data: listings,
+    total: listings.length,
+    pendingReview: listings.length,
+  })
+})
+
+listingsRoute.post("/listings/:id/approve", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const db = getPrismaClient()
+  try {
+    const listing = await db.listing.update({
+      where: { id: c.req.param("id") },
+      data: { status: "active" },
+    })
+    return c.json({ data: listing })
+  } catch (err) {
+    throw toAppError(err)
+  }
+})
+
+listingsRoute.post("/listings/:id/reject", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const db = getPrismaClient()
+  try {
+    const listing = await db.listing.update({
+      where: { id: c.req.param("id") },
+      data: { status: "rejected" },
+    })
+    return c.json({ data: listing })
+  } catch (err) {
+    throw toAppError(err)
+  }
+})
+
+listingsRoute.post("/listings/:id/restore", async (c: Context<{ Variables: { requestId: string } }>) => {
+  const db = getPrismaClient()
+  try {
+    const listing = await db.listing.update({
+      where: { id: c.req.param("id") },
+      data: { status: "review" },
+    })
+    return c.json({ data: listing })
+  } catch (err) {
+    throw toAppError(err)
+  }
+})
+
 listingsRoute.get("/listings/:id", async (c: Context<{ Variables: { requestId: string } }>) => {
   const db = getPrismaClient()
   const listing = await db.listing.findUnique({
     where: { id: c.req.param("id") },
     include: { rawPosts: true },
   })
-  if (!listing) {
-    return c.json({ error: { code: "not_found", message: "Listing not found", requestId: c.get("requestId") } }, 404)
-  }
+  if (!listing) throw new AppError("not_found", "Listing not found", 404)
   return c.json({ data: listing })
 })
 

@@ -1,29 +1,42 @@
-import type { Context } from "hono";
-
-export type ErrorCode = "validation" | "business" | "unknown";
+import type { Context } from "hono"
+import { AppError } from "../lib/app-error"
+import { toAppError } from "../lib/prisma-errors"
 
 export interface ErrorEnvelope {
   error: {
-    code: ErrorCode;
-    message: string;
-    requestId: string;
-  };
+    code: string
+    message: string
+    requestId: string
+  }
 }
 
-const ERROR_MAP: { code: ErrorCode; status: 400 | 409 | 500; test: (e: Error) => boolean }[] = [
-  { code: "validation", status: 400, test: (e) => e.name === "ZodError" },
-  { code: "business", status: 409, test: (e) => e.message.startsWith("BUSINESS:") },
-];
+const KNOWN_CODES = new Set([
+  "validation_error", "not_found", "conflict",
+  "unauthorized", "session_expired", "network_error",
+  "external_error", "internal_error",
+])
 
 export function errorHandler(err: Error, c: Context<{ Variables: { requestId: string } }>): Response {
-  const requestId = c.get("requestId");
+  const requestId = c.get("requestId")
 
-  for (const entry of ERROR_MAP) {
-    if (entry.test(err)) {
-      return c.json({
-        error: { code: entry.code, message: err.message, requestId },
-      } satisfies ErrorEnvelope, entry.status);
-    }
+  if (err instanceof AppError) {
+    return c.json({
+      error: { code: err.code, message: err.message, requestId },
+    } satisfies ErrorEnvelope, err.status)
+  }
+
+  if (err.name === "ZodError") {
+    return c.json({
+      error: { code: "validation_error", message: err.message, requestId },
+    } satisfies ErrorEnvelope, 400)
+  }
+
+  const appError = toAppError(err)
+
+  if (appError.code !== "internal_error") {
+    return c.json({
+      error: { code: appError.code, message: appError.message, requestId },
+    } satisfies ErrorEnvelope, appError.status)
   }
 
   console.error(JSON.stringify({
@@ -31,9 +44,9 @@ export function errorHandler(err: Error, c: Context<{ Variables: { requestId: st
     msg: err.message,
     requestId,
     stack: err.stack,
-  }));
+  }))
 
   return c.json({
-    error: { code: "unknown", message: "Internal server error", requestId },
-  } satisfies ErrorEnvelope, 500);
+    error: { code: "internal_error", message: "Internal server error", requestId },
+  } satisfies ErrorEnvelope, 500)
 }

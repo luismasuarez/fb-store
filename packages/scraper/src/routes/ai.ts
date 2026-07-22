@@ -3,6 +3,8 @@ import type { Context } from "hono"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { Extractor, fetchAvailableModels } from "@fb-store/shared"
+import { AppError } from "../lib/app-error"
+import { toAppError } from "../lib/prisma-errors"
 
 interface AiConfigData {
   provider: string
@@ -64,12 +66,8 @@ aiRoute.put("/ai/config", async (c: Context<{ Variables: { requestId: string } }
   const body = await c.req.json()
   const { provider, model, apiKey } = body
 
-  if (!provider) {
-    return c.json({ error: { code: "validation", message: "provider is required", requestId: c.get("requestId") } }, 400)
-  }
-  if (!apiKey) {
-    return c.json({ error: { code: "validation", message: "apiKey is required", requestId: c.get("requestId") } }, 400)
-  }
+  if (!provider) throw new AppError("validation_error", "provider is required", 400)
+  if (!apiKey) throw new AppError("validation_error", "apiKey is required", 400)
 
   try {
     saveConfig({
@@ -77,20 +75,12 @@ aiRoute.put("/ai/config", async (c: Context<{ Variables: { requestId: string } }
       model: model || "openai/gpt-4o-mini",
       apiKey,
     })
-  } catch (err: any) {
-    console.error(JSON.stringify({
-      level: "error",
-      msg: "Failed to save ai-config.json",
-      error: String(err),
-      requestId: c.get("requestId"),
-    }))
-    return c.json({ error: { code: "unknown", message: "Failed to save configuration", requestId: c.get("requestId") } }, 500)
+  } catch {
+    throw new AppError("internal_error", "Failed to save configuration", 500)
   }
 
   const config = loadConfig()
-  if (!config) {
-    return c.json({ error: { code: "unknown", message: "Failed to save AI configuration", requestId: c.get("requestId") } }, 500)
-  }
+  if (!config) throw new AppError("internal_error", "Failed to save AI configuration", 500)
 
   return c.json({
     data: {
@@ -102,18 +92,14 @@ aiRoute.put("/ai/config", async (c: Context<{ Variables: { requestId: string } }
 })
 
 aiRoute.get("/ai/models", async (c: Context<{ Variables: { requestId: string } }>) => {
-  try {
-    const models = await fetchAvailableModels()
-    return c.json({ data: models })
-  } catch (err: any) {
-    return c.json({ error: { code: "unknown", message: err.message, requestId: c.get("requestId") } }, 500)
-  }
+  const models = await fetchAvailableModels()
+  return c.json({ data: models })
 })
 
 aiRoute.post("/ai/test", async (c: Context<{ Variables: { requestId: string } }>) => {
   const config = loadConfig()
   if (!config || !config.apiKey) {
-    return c.json({ error: { code: "business", message: "AI not configured", requestId: c.get("requestId") } }, 400)
+    throw new AppError("validation_error", "AI not configured", 400)
   }
 
   const body = await c.req.json().catch(() => ({}))
@@ -150,12 +136,8 @@ aiRoute.post("/ai/test", async (c: Context<{ Variables: { requestId: string } }>
 
 aiRoute.post("/ai/process", async (c: Context<{ Variables: { requestId: string } }>) => {
   const { processBatch } = await import("@fb-store/ai-processor")
-  try {
-    const result = await processBatch()
-    return c.json({ data: result })
-  } catch (err: any) {
-    return c.json({ error: { code: "unknown", message: err.message, requestId: c.get("requestId") } }, 500)
-  }
+  const result = await processBatch()
+  return c.json({ data: result })
 })
 
 export default aiRoute
