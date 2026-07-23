@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fbstore
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fbstore
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fbstore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://fbstore:${DB_PASSWORD}@postgres:5432/fbstore
+      SCRAPER_API_KEY: ${SCRAPER_API_KEY}
+      CHROME_PATH: /usr/bin/chromium
+      PORT: 3001
+      NODE_ENV: production
+    volumes:
+      - profiles_data:/app/profiles
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./apps/dashboard
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_API_KEY: ${SCRAPER_API_KEY}
+    ports:
+      - "4321:80"
+    depends_on:
+      - scraper
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  profiles_data:

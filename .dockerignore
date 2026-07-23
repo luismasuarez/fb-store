@@ -9,4 +9,4 @@ dist/
 .turbo/
 snapshots/
 docs/
-apps/expo/
+apps/
